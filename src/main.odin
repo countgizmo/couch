@@ -4,13 +4,15 @@ import "core:fmt"
 import "core:time"
 import "core:log"
 import "core:strconv"
+import "core:os"
 import rl "vendor:raylib"
 
 State :: struct {
   start: time.Time,
   session: [dynamic]Entry,
   keys_pressed: [dynamic]u8,
-  current_reps: i32,
+  exercises: i32,
+  minutes: i32,
 }
 
 Entry :: struct {
@@ -91,24 +93,48 @@ render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
 }
 
 render_total :: proc(state: ^State) {
-  total: i32
+  text: cstring
 
-  for e in state.session {
-    total += e.reps
+  // NOTE(evgheni): this is very program specific at the moment
+  // Maybe I will make it more generic in the future if I ever need to.
+  // Now it's targetted for the Maximorum KB program
+  if state.exercises == 2 {
+    even := false
+    total1:i32
+    total2:i32
+
+    for e in state.session {
+      if even {
+        total2 += e.reps
+        even = !even
+      } else {
+        total1 += e.reps
+        even = !even
+      }
+    }
+
+    text = fmt.ctprintf("%v / %v", total1, total2)
+  } else if state.exercises == 1 {
+    total: i32
+    for e in state.session {
+      total += e.reps
+    }
+
+    text = fmt.ctprintf("%v", total)
+  } else {
+    text = "WTF"
   }
 
-  text := fmt.ctprintf("%v", total)
   position := rl.Vector2 {
     get_axis_start_x(),
     SCREEN_PADDING,
   }
 
   rl.DrawTextEx(rl.GetFontDefault(), text, position, 30, 1, TEXT_COLOR)
-
 }
 
 render_session :: proc(state: ^State) {
-  column_width := get_column_width(30, cast(i32)len(state.session))
+  column_width := get_column_width(state.minutes, cast(i32)len(state.session))
 
   for &entry, idx in state.session {
     render_entry(idx, &entry, column_width)
@@ -140,36 +166,45 @@ process_input :: proc(state: ^State) {
   }
 }
 
+parse_args :: proc(state: ^State) {
+  if len(os.args) == 1 {
+    return
+  }
+
+  i := 1 // skipping the name of the command itself
+  for i < len(os.args) {
+    if os.args[i] == "-e" {
+      i += 1
+      exercises, _ := strconv.parse_int(os.args[i])
+      state.exercises = cast(i32) exercises
+    }
+
+    if os.args[i] == "-m" {
+      i += 1
+      minutes, _ := strconv.parse_int(os.args[i])
+      state.minutes = cast(i32) minutes
+    }
+
+    i +=1
+  }
+}
+
 main :: proc() {
   context.logger = log.create_console_logger()
 
   state := State {
     start = time.now(),
+    exercises = 1,
+    minutes = 20,
   }
 
-  append(&state.session, Entry{reps = 1, t = time.time_add(state.start, time.Minute + 1)})
-  append(&state.session, Entry{reps = 2, t = time.time_add(state.start, time.Minute + 2)})
-  append(&state.session, Entry{reps = 1, t = time.time_add(state.start, time.Minute + 3)})
-  append(&state.session, Entry{reps = 2, t = time.time_add(state.start, time.Minute + 4)})
-  append(&state.session, Entry{reps = 1, t = time.time_add(state.start, time.Minute + 5)})
-  append(&state.session, Entry{reps = 2, t = time.time_add(state.start, time.Minute + 6)})
-  append(&state.session, Entry{reps = 1, t = time.time_add(state.start, time.Minute + 7)})
-  append(&state.session, Entry{reps = 2, t = time.time_add(state.start, time.Minute + 8)})
-  append(&state.session, Entry{reps = 1, t = time.time_add(state.start, time.Minute + 9)})
-  append(&state.session, Entry{reps = 2, t = time.time_add(state.start, time.Minute + 10)})
+  parse_args(&state)
 
-  append(&state.session, Entry{reps = 6, t = time.time_add(state.start, time.Minute + 1)})
-  append(&state.session, Entry{reps = 10, t = time.time_add(state.start, time.Minute + 2)})
-  append(&state.session, Entry{reps = 6, t = time.time_add(state.start, time.Minute + 3)})
-  append(&state.session, Entry{reps = 10, t = time.time_add(state.start, time.Minute + 4)})
-  append(&state.session, Entry{reps = 6, t = time.time_add(state.start, time.Minute + 5)})
-  append(&state.session, Entry{reps = 10, t = time.time_add(state.start, time.Minute + 6)})
-  append(&state.session, Entry{reps = 6, t = time.time_add(state.start, time.Minute + 7)})
-  append(&state.session, Entry{reps = 10, t = time.time_add(state.start, time.Minute + 8)})
-  append(&state.session, Entry{reps = 6, t = time.time_add(state.start, time.Minute + 9)})
-  append(&state.session, Entry{reps = 10, t = time.time_add(state.start, time.Minute + 10)})
-
-  rl.SetConfigFlags({.WINDOW_HIGHDPI})
+  rl.SetConfigFlags({
+    .WINDOW_HIGHDPI,
+    .WINDOW_MAXIMIZED,
+    .WINDOW_RESIZABLE
+  })
 
   rl.InitWindow(1200, 800, "Couch")
 
