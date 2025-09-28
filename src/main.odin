@@ -40,7 +40,7 @@ get_column_width :: proc(chunks: i32, count: i32) -> f32 {
   line_width := get_axis_end_x() - get_axis_start_x()
   chunks_based := line_width / cast(f32) chunks
 
- total_width_needed := (chunks_based + COLUMN_PADDING) * cast(f32)count - COLUMN_PADDING
+  total_width_needed := (chunks_based + COLUMN_PADDING) * cast(f32)count - COLUMN_PADDING
 
   if total_width_needed > line_width {
     total_padding := COLUMN_PADDING * cast(f32)(count - 1)
