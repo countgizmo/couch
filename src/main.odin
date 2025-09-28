@@ -90,12 +90,31 @@ render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
   rl.DrawTextEx(rl.GetFontDefault(), reps_text, position, 20, 1, TEXT_COLOR)
 }
 
+render_total :: proc(state: ^State) {
+  total: i32
+
+  for e in state.session {
+    total += e.reps
+  }
+
+  text := fmt.ctprintf("%v", total)
+  position := rl.Vector2 {
+    get_axis_start_x(),
+    SCREEN_PADDING,
+  }
+
+  rl.DrawTextEx(rl.GetFontDefault(), text, position, 30, 1, TEXT_COLOR)
+
+}
+
 render_session :: proc(state: ^State) {
   column_width := get_column_width(30, cast(i32)len(state.session))
 
   for &entry, idx in state.session {
     render_entry(idx, &entry, column_width)
   }
+
+  render_total(state)
 }
 
 convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
