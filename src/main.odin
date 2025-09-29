@@ -84,12 +84,13 @@ render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
 
   reps_text := fmt.ctprintf("%v", entry.reps)
   text_x := (get_axis_start_x() + (width / 2) + offset)
+  text_size: f32 = 40
   position := rl.Vector2 {
     text_x,
-    get_axis_y() - cast(f32) height - 20,
+    get_axis_y() - cast(f32) height - text_size,
   }
 
-  rl.DrawTextEx(rl.GetFontDefault(), reps_text, position, 20, 1, TEXT_COLOR)
+  rl.DrawTextEx(rl.GetFontDefault(), reps_text, position, text_size, 1, TEXT_COLOR)
 }
 
 render_total :: proc(state: ^State) {
@@ -130,7 +131,7 @@ render_total :: proc(state: ^State) {
     SCREEN_PADDING,
   }
 
-  rl.DrawTextEx(rl.GetFontDefault(), text, position, 30, 1, TEXT_COLOR)
+  rl.DrawTextEx(rl.GetFontDefault(), text, position, 44, 1, TEXT_COLOR)
 }
 
 render_session :: proc(state: ^State) {
