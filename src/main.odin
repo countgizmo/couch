@@ -21,6 +21,7 @@ Entry :: struct {
 }
 
 TEXT_COLOR :rl.Color: {128, 128, 0, 255}
+TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
 BG_COLOR :rl.Color: {0, 0, 128, 255}
 SCREEN_PADDING :: 50
 COLUMN_PADDING: f32 = 10
@@ -73,6 +74,12 @@ render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
   height := entry.reps * 50
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
 
+  color := TEXT_COLOR
+
+  if idx % 2 == 0 {
+    color = TEXT_COLOR_FADED
+  }
+
   rl.DrawRectangleRec(
     rl.Rectangle {
       x = (get_axis_start_x() + offset),
@@ -80,7 +87,7 @@ render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
       width = width,
       height = cast(f32) height,
     },
-    TEXT_COLOR)
+    color)
 
   reps_text := fmt.ctprintf("%v", entry.reps)
   text_x := (get_axis_start_x() + (width / 2) + offset)
@@ -131,7 +138,7 @@ render_total :: proc(state: ^State) {
     SCREEN_PADDING,
   }
 
-  rl.DrawTextEx(rl.GetFontDefault(), text, position, 44, 1, TEXT_COLOR)
+  rl.DrawTextEx(rl.GetFontDefault(), text, position, 54, 1, TEXT_COLOR)
 }
 
 render_session :: proc(state: ^State) {
