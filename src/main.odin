@@ -13,6 +13,7 @@ State :: struct {
   keys_pressed: [dynamic]u8,
   exercises: i32,
   minutes: i32,
+  inputting: bool,
 }
 
 Entry :: struct {
@@ -151,6 +152,33 @@ render_session :: proc(state: ^State) {
   render_total(state)
 }
 
+render_controls :: proc(state: ^State) {
+  modal_width:f32 = 150
+  modal_height:f32 = 60
+  modal := rl.Rectangle {
+    x = cast(f32)(rl.GetScreenWidth()/2) - (modal_width/2),
+    y = cast(f32)(rl.GetScreenHeight()/2) - (modal_height/2),
+    width = modal_width,
+    height = modal_height,
+  }
+
+  if state.inputting {
+    rl.DrawRectangleRec(modal, BG_COLOR)
+
+    rl.DrawRectangleLinesEx(modal, 4, TEXT_COLOR)
+
+    text_position := rl.Vector2 {
+      modal.x + 10,
+      modal.y + 7,
+    }
+
+    text: cstring = fmt.ctprintf("%v", convert_to_number(state.keys_pressed))
+
+    rl.DrawTextEx(rl.GetFontDefault(), text, text_position, 50, 4, TEXT_COLOR)
+
+  }
+}
+
 convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
     result: i32 = 0
     for digit_byte in ascii_digits {
@@ -166,8 +194,14 @@ process_input :: proc(state: ^State) {
   key := rl.GetKeyPressed()
   #partial switch key {
   case .ZERO..=.NINE:
+    state.inputting = true
     append(&state.keys_pressed, cast(u8)key)
+  case .BACKSPACE:
+    if len(state.keys_pressed) > 0 {
+      pop(&state.keys_pressed)
+    }
   case .ENTER:
+    state.inputting = false
     reps_num := convert_to_number(state.keys_pressed)
     append(&state.session, Entry{reps = reps_num, t = time.now()})
     clear(&state.keys_pressed)
@@ -211,7 +245,7 @@ main :: proc() {
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
     .WINDOW_MAXIMIZED,
-    .WINDOW_RESIZABLE
+    .WINDOW_RESIZABLE,
   })
 
   rl.InitWindow(1200, 800, "Couch")
@@ -229,6 +263,7 @@ main :: proc() {
     process_input(&state)
     render_axis()
     render_session(&state)
+    render_controls(&state)
 
     rl.EndDrawing()
   }
