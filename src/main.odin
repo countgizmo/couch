@@ -14,6 +14,7 @@ State :: struct {
   exercises: i32,
   minutes: i32,
   inputting: bool,
+  analytics: bool,
 }
 
 Entry :: struct {
@@ -22,11 +23,12 @@ Entry :: struct {
 }
 
 TEXT_COLOR :rl.Color: {128, 128, 0, 255}
-TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
 BG_COLOR :rl.Color: {0, 0, 128, 255}
+TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
 SCREEN_PADDING :: 50
+COLUMN_MULTIPLIER :: 50
 COLUMN_PADDING: f32 = 10
-
+ANALYTICS_COLOR :rl.Color: {128, 0, 0, 255}
 
 get_axis_start_x :: proc() -> f32 {
   return 0 + SCREEN_PADDING
@@ -42,7 +44,7 @@ get_axis_y :: proc() -> f32 {
 
 get_column_width :: proc(chunks: i32, count: i32) -> f32 {
   line_width := get_axis_end_x() - get_axis_start_x()
-  chunks_based := line_width / cast(f32) chunks
+  chunks_based := line_width / cast(f32)chunks
 
   total_width_needed := (chunks_based + COLUMN_PADDING) * cast(f32)count - COLUMN_PADDING
 
@@ -55,6 +57,87 @@ get_column_width :: proc(chunks: i32, count: i32) -> f32 {
   }
 
   return chunks_based
+}
+
+render_analytics :: proc(state: ^State) {
+
+  // Axis
+
+  x_axis_start := rl.Vector2 {
+    get_axis_start_x(),
+    get_axis_y(),
+  }
+
+  x_axis_end := rl.Vector2 {
+    get_axis_end_x(),
+    get_axis_y(),
+  }
+
+  rl.DrawLineEx( x_axis_start, x_axis_end, 5, ANALYTICS_COLOR)
+
+  y_axis_start := rl.Vector2 {
+    get_axis_start_x(),
+    get_axis_y(),
+  }
+
+  y_end_x := get_axis_start_x()
+  y_end_y: f32 = 0 + SCREEN_PADDING
+
+  y_axis_end := rl.Vector2 { y_end_x, y_end_y }
+
+  y_axis_height := y_axis_start.y - y_axis_end.y
+  rl.DrawLineEx(y_axis_start, y_axis_end, 5, ANALYTICS_COLOR)
+
+  first_entry := state.session[0]
+  last_entry := state.session[len(state.session)-1]
+  total_minutes := time.duration_minutes(time.diff(first_entry.t, last_entry.t))
+
+  x_axis_width := get_axis_end_x() - get_axis_start_x()
+
+
+  total_by_minute: [dynamic]i32
+
+  // Measure
+  for current_minute in 0..=total_minutes {
+    append(&total_by_minute, 0)
+    for entry in state.session {
+      diff_minutes := time.duration_minutes(time.diff(first_entry.t, entry.t))
+
+      if diff_minutes <= current_minute {
+        total_by_minute[cast(i32)current_minute] += entry.reps
+      }
+    }
+  }
+
+  max_total := cast(f32)total_by_minute[len(total_by_minute)-1]
+  percentage_in_pixels := y_axis_height / 100
+
+  // Draw
+  for current_minute in 0..=total_minutes {
+    current_total := cast(f32)total_by_minute[cast(i32)current_minute]
+    y_percentage := 100 * (current_total / max_total)
+
+    // ticks
+    current_x := SCREEN_PADDING + (x_axis_width / cast(f32)total_minutes) * cast(f32)current_minute
+    start_y := get_axis_y()
+    end_y := start_y - 20
+
+    rl.DrawLineEx(
+      rl.Vector2 { current_x, start_y},
+      rl.Vector2 { current_x, end_y},
+      2,
+      ANALYTICS_COLOR)
+
+    minute_text := fmt.ctprintf("%v", current_minute)
+    minute_text_position := rl.Vector2 {current_x, start_y + 20}
+    text_size: f32 = 20
+    rl.DrawTextEx(rl.GetFontDefault(), minute_text, minute_text_position, text_size, 1, ANALYTICS_COLOR)
+
+
+    circle_y : f32 = start_y - cast(f32)y_percentage * percentage_in_pixels
+    rl.DrawCircleV(rl.Vector2 {current_x, circle_y }, 5, ANALYTICS_COLOR)
+
+  }
 }
 
 render_axis :: proc() {
@@ -72,7 +155,7 @@ render_axis :: proc() {
 }
 
 render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
-  height := entry.reps * 50
+  height := entry.reps * COLUMN_MULTIPLIER
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
 
   color := TEXT_COLOR
@@ -193,6 +276,8 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
 process_input :: proc(state: ^State) {
   key := rl.GetKeyPressed()
   #partial switch key {
+  case .A:
+    state.analytics = !state.analytics
   case .ZERO..=.NINE:
     state.inputting = true
     append(&state.keys_pressed, cast(u8)key)
@@ -238,14 +323,28 @@ main :: proc() {
     start = time.now(),
     exercises = 1,
     minutes = 20,
+    analytics = true,
   }
+
+
+  the_beginning := time.now()
+  append(&state.session, Entry{reps = 6, t = the_beginning})
+  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 2 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 4 * time.Minute)})
+  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 7 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 10 * time.Minute)})
+  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 12 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 15 * time.Minute)})
+  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 18 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 20 * time.Minute)})
+
 
   parse_args(&state)
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
-    .WINDOW_MAXIMIZED,
-    .WINDOW_RESIZABLE,
+    // .WINDOW_MAXIMIZED,
+    // .WINDOW_RESIZABLE,
   })
 
   rl.InitWindow(1200, 800, "Couch")
@@ -261,13 +360,15 @@ main :: proc() {
     rl.ClearBackground(BG_COLOR)
 
     process_input(&state)
-    render_axis()
-    render_session(&state)
-    render_controls(&state)
+
+    if state.analytics {
+      render_analytics(&state)
+    } else {
+      render_axis()
+      render_session(&state)
+      render_controls(&state)
+    }
 
     rl.EndDrawing()
   }
-
-
-
 }
