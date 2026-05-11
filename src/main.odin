@@ -10,11 +10,27 @@ import rl "vendor:raylib"
 State :: struct {
   start: time.Time,
   session: [dynamic]Entry,
-  keys_pressed: [dynamic]u8,
+
+  // Setup
   exercises: i32,
   minutes: i32,
+
+
+  // Controls
+  keys_pressed: [dynamic]u8,
   inputting: bool,
   analytics: bool,
+
+  // View
+  x_axis: Axis,
+  y_axis: Axis,
+}
+
+Axis :: struct {
+  start: rl.Vector2,
+  end: rl.Vector2,
+  width: f32,
+  height: f32,
 }
 
 Entry :: struct {
@@ -28,7 +44,7 @@ TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
 SCREEN_PADDING :: 50
 COLUMN_MULTIPLIER :: 50
 COLUMN_PADDING: f32 = 10
-ANALYTICS_COLOR :rl.Color: {128, 0, 0, 255}
+ANALYTICS_COLOR :rl.Color: {128, 128, 128, 255}
 
 get_axis_start_x :: proc() -> f32 {
   return 0 + SCREEN_PADDING
@@ -40,6 +56,44 @@ get_axis_end_x :: proc() -> f32 {
 
 get_axis_y :: proc() -> f32 {
   return cast(f32) rl.GetScreenHeight() - SCREEN_PADDING
+}
+
+get_y_axis :: proc() -> Axis {
+  y_axis_start := rl.Vector2 {
+    get_axis_start_x(),
+    get_axis_y(),
+  }
+
+  y_axis_end := rl.Vector2 {
+    get_axis_start_x(),
+    0 + SCREEN_PADDING,
+  }
+
+  return Axis {
+    start = y_axis_start,
+    end = y_axis_end,
+    width = y_axis_end.x - y_axis_start.x,
+    height = y_axis_end.y - y_axis_end.y,
+  }
+}
+
+get_x_axis :: proc() -> Axis {
+  x_axis_start := rl.Vector2 {
+    get_axis_start_x(),
+    get_axis_y(),
+  }
+
+  x_axis_end := rl.Vector2 {
+    get_axis_end_x(),
+    get_axis_y(),
+  }
+
+  return Axis {
+    start = x_axis_start,
+    end = x_axis_end,
+    width = x_axis_end.x - x_axis_start.x,
+    height = x_axis_end.y - x_axis_end.y,
+  }
 }
 
 get_column_width :: proc(chunks: i32, count: i32) -> f32 {
@@ -61,32 +115,11 @@ get_column_width :: proc(chunks: i32, count: i32) -> f32 {
 
 render_analytics :: proc(state: ^State) {
 
-  // Axis
-
-  x_axis_start := rl.Vector2 {
-    get_axis_start_x(),
-    get_axis_y(),
+  // Nothing to report
+  if len(state.session) == 0 {
+    return
   }
 
-  x_axis_end := rl.Vector2 {
-    get_axis_end_x(),
-    get_axis_y(),
-  }
-
-  rl.DrawLineEx( x_axis_start, x_axis_end, 5, ANALYTICS_COLOR)
-
-  y_axis_start := rl.Vector2 {
-    get_axis_start_x(),
-    get_axis_y(),
-  }
-
-  y_end_x := get_axis_start_x()
-  y_end_y: f32 = 0 + SCREEN_PADDING
-
-  y_axis_end := rl.Vector2 { y_end_x, y_end_y }
-
-  y_axis_height := y_axis_start.y - y_axis_end.y
-  rl.DrawLineEx(y_axis_start, y_axis_end, 5, ANALYTICS_COLOR)
 
   first_entry := state.session[0]
   last_entry := state.session[len(state.session)-1]
@@ -110,7 +143,7 @@ render_analytics :: proc(state: ^State) {
   }
 
   max_total := cast(f32)total_by_minute[len(total_by_minute)-1]
-  percentage_in_pixels := y_axis_height / 100
+  percentage_in_pixels := state.y_axis.height / 100
 
   // Draw
   for current_minute in 0..=total_minutes {
@@ -123,8 +156,8 @@ render_analytics :: proc(state: ^State) {
     end_y := start_y - 20
 
     rl.DrawLineEx(
-      rl.Vector2 { current_x, start_y},
-      rl.Vector2 { current_x, end_y},
+      rl.Vector2 { current_x, start_y },
+      rl.Vector2 { current_x, end_y },
       2,
       ANALYTICS_COLOR)
 
@@ -140,18 +173,10 @@ render_analytics :: proc(state: ^State) {
   }
 }
 
-render_axis :: proc() {
-  line_start := rl.Vector2 {
-    get_axis_start_x(),
-    get_axis_y(),
-  }
-
-  line_end := rl.Vector2 {
-    get_axis_end_x(),
-    get_axis_y(),
-  }
-
-  rl.DrawLineEx( line_start, line_end, 5, TEXT_COLOR)
+render_axis :: proc(state: ^State, color: rl.Color) {
+  log.debugf("start = %v end = %v", state.x_axis.start, state.x_axis.end)
+  rl.DrawLineEx(state.x_axis.start, state.x_axis.end, 5, color)
+  rl.DrawLineEx(state.y_axis.start, state.y_axis.end, 5, color)
 }
 
 render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
@@ -218,7 +243,7 @@ render_total :: proc(state: ^State) {
   }
 
   position := rl.Vector2 {
-    get_axis_start_x(),
+    state.x_axis.start.x + SCREEN_PADDING,
     SCREEN_PADDING,
   }
 
@@ -274,6 +299,15 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
 }
 
 process_input :: proc(state: ^State) {
+
+  // In case window changed
+
+  state.x_axis = get_x_axis()
+  state.y_axis = get_y_axis()
+
+
+  // Keyboard
+
   key := rl.GetKeyPressed()
   #partial switch key {
   case .A:
@@ -316,17 +350,19 @@ parse_args :: proc(state: ^State) {
   }
 }
 
+render :: proc(state: ^State) {
+  if state.analytics {
+    render_axis(state, ANALYTICS_COLOR)
+    render_analytics(state)
+  } else {
+    render_axis(state, TEXT_COLOR)
+    render_session(state)
+    render_controls(state)
+  }
+}
+
 main :: proc() {
   context.logger = log.create_console_logger()
-
-  state := State {
-    start = time.now(),
-    exercises = 1,
-    minutes = 20,
-    analytics = false,
-  }
-
-  parse_args(&state)
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
@@ -340,22 +376,23 @@ main :: proc() {
 
   rl.SetTargetFPS(30)
   rl.EnableEventWaiting()
+  rl.SetExitKey(.KEY_NULL);
+
+
+  state := State {
+    start = time.now(),
+    exercises = 1,
+    minutes = 20,
+    analytics = false,
+  }
+
+  parse_args(&state)
 
   for !rl.WindowShouldClose() {
     rl.BeginDrawing()
-
     rl.ClearBackground(BG_COLOR)
-
     process_input(&state)
-
-    if state.analytics {
-      render_analytics(&state)
-    } else {
-      render_axis()
-      render_session(&state)
-      render_controls(&state)
-    }
-
+    render(&state)
     rl.EndDrawing()
   }
 }
