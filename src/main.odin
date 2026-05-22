@@ -31,25 +31,25 @@ Entry :: struct {
 SCREEN_WIDTH :: 1200
 SCREEN_HEIGHT :: 800
 CONTAINER_PADDING :: 50
+COLUMN_PADDING: f32 = 10
 
 TEXT_COLOR :rl.Color: {128, 128, 0, 255}
 BG_COLOR :rl.Color: {0, 0, 128, 255}
 TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
 ANALYTICS_COLOR :rl.Color: {128, 128, 128, 255}
 
-COLUMN_MULTIPLIER :: 50
-COLUMN_PADDING: f32 = 10
-
-get_column_width :: proc(container: rl.Rectangle,chunks: i32, count: i32) -> f32 {
+get_column_width :: proc(container: rl.Rectangle, chunks: i32, count: i32) -> f32 {
   chunks_based := container.width / cast(f32)chunks
 
-  total_width_needed := (chunks_based + COLUMN_PADDING) * cast(f32)count - COLUMN_PADDING
+  total_width_needed := (chunks_based + COLUMN_PADDING) * cast(f32)count + 50
 
   if total_width_needed > container.width {
-    total_padding := COLUMN_PADDING * cast(f32)(count - 1)
-    available_width := container.width - total_padding
-    dynamic_width := available_width / cast(f32)count
 
+    total_padding := COLUMN_PADDING * cast(f32)count
+    available_width := container.width - total_padding
+
+    //NOTE(evgheni): add an extra space for one more to get end padding
+    dynamic_width := available_width / cast(f32)(count+1)
     return dynamic_width
   }
 
@@ -149,23 +149,23 @@ render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f3
   column_height_percentage := 100 * (cast(f32)entry.reps / cast(f32)max_reps)
   column_height := column_height_percentage * percentage_in_pixels
 
-  rl.DrawRectangleRec(
-    rl.Rectangle {
-      x = container.x + offset,
-      y = container.height - column_height,
-      width = width,
-      height = column_height,
-    },
-    color)
+  column := rl.Rectangle {
+    x = container.x + offset,
+    y = container.height - column_height,
+    width = width,
+    height = column_height,
+  }
+
+  rl.DrawRectangleRec(column, color)
 
   reps_text := fmt.ctprintf("%v", entry.reps)
   font_size: f32 = 40
   text_position := rl.Vector2 {
-    container.x + (width / 2) + offset,
-    container.y - column_height - font_size,
+    COLUMN_PADDING + column.x,
+    column.y - font_size,
   }
 
-  rl.DrawTextEx(rl.GetFontDefault(), reps_text, text_position, font_size, 1, TEXT_COLOR)
+  rl.DrawTextEx(rl.GetFontDefault(), reps_text, text_position, font_size, 1, color)
 }
 
 render_total :: proc(container: rl.Rectangle, state: ^State) {
@@ -199,8 +199,8 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
   }
 
   position := rl.Vector2 {
-    container.x + container.width - CONTAINER_PADDING,
-    container.y + container.height - CONTAINER_PADDING,
+    container.x + container.width - CONTAINER_PADDING - 20,
+    container.y + container.height - CONTAINER_PADDING - 10,
   }
 
   rl.DrawTextEx(rl.GetFontDefault(), text, position, 54, 1, TEXT_COLOR)
@@ -397,7 +397,7 @@ main :: proc() {
     exercises = 1,
     minutes = 20,
     analytics = false,
-    started = false,
+    started = true,
   }
 
   // TEST DATA
@@ -411,7 +411,13 @@ main :: proc() {
   append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 15 * time.Minute)})
   append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 18 * time.Minute)})
   append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 20 * time.Minute)})
-
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 22 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 24 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 25 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 27 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 28 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 30 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 34 * time.Minute)})
 
   parse_args(&state)
 
