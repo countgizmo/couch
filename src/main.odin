@@ -21,17 +21,6 @@ State :: struct {
   keys_pressed: [dynamic]u8,
   inputting: bool,
   analytics: bool,
-
-  // View
-  x_axis: Axis,
-  y_axis: Axis,
-}
-
-Axis :: struct {
-  start: rl.Vector2,
-  end: rl.Vector2,
-  width: f32,
-  height: f32,
 }
 
 Entry :: struct {
@@ -41,73 +30,24 @@ Entry :: struct {
 
 SCREEN_WIDTH :: 1200
 SCREEN_HEIGHT :: 800
+CONTAINER_PADDING :: 50
+
 TEXT_COLOR :rl.Color: {128, 128, 0, 255}
 BG_COLOR :rl.Color: {0, 0, 128, 255}
 TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
-SCREEN_PADDING :: 50
-COLUMN_MULTIPLIER :: 50
-COLUMN_PADDING: f32 = 10
 ANALYTICS_COLOR :rl.Color: {128, 128, 128, 255}
 
-get_axis_start_x :: proc() -> f32 {
-  return 0 + SCREEN_PADDING
-}
+COLUMN_MULTIPLIER :: 50
+COLUMN_PADDING: f32 = 10
 
-get_axis_end_x :: proc() -> f32 {
-  return cast(f32) rl.GetScreenWidth() - SCREEN_PADDING
-}
-
-get_axis_y :: proc() -> f32 {
-  return cast(f32) rl.GetScreenHeight() - SCREEN_PADDING
-}
-
-get_y_axis :: proc() -> Axis {
-  y_axis_start := rl.Vector2 {
-    get_axis_start_x(),
-    get_axis_y(),
-  }
-
-  y_axis_end := rl.Vector2 {
-    get_axis_start_x(),
-    0 + SCREEN_PADDING,
-  }
-
-  return Axis {
-    start = y_axis_start,
-    end = y_axis_end,
-    width = y_axis_end.x - y_axis_start.x,
-    height = y_axis_end.y - y_axis_end.y,
-  }
-}
-
-get_x_axis :: proc() -> Axis {
-  x_axis_start := rl.Vector2 {
-    get_axis_start_x(),
-    get_axis_y(),
-  }
-
-  x_axis_end := rl.Vector2 {
-    get_axis_end_x(),
-    get_axis_y(),
-  }
-
-  return Axis {
-    start = x_axis_start,
-    end = x_axis_end,
-    width = x_axis_end.x - x_axis_start.x,
-    height = x_axis_end.y - x_axis_end.y,
-  }
-}
-
-get_column_width :: proc(chunks: i32, count: i32) -> f32 {
-  line_width := get_axis_end_x() - get_axis_start_x()
-  chunks_based := line_width / cast(f32)chunks
+get_column_width :: proc(container: rl.Rectangle,chunks: i32, count: i32) -> f32 {
+  chunks_based := container.width / cast(f32)chunks
 
   total_width_needed := (chunks_based + COLUMN_PADDING) * cast(f32)count - COLUMN_PADDING
 
-  if total_width_needed > line_width {
+  if total_width_needed > container.width {
     total_padding := COLUMN_PADDING * cast(f32)(count - 1)
-    available_width := line_width - total_padding
+    available_width := container.width - total_padding
     dynamic_width := available_width / cast(f32)count
 
     return dynamic_width
@@ -116,72 +56,87 @@ get_column_width :: proc(chunks: i32, count: i32) -> f32 {
   return chunks_based
 }
 
-render_analytics :: proc(state: ^State) {
+// render_analytics :: proc(state: ^State) {
+//
+//   // Nothing to report
+//   if len(state.session) == 0 {
+//     return
+//   }
+//
+//
+//   first_entry := state.session[0]
+//   last_entry := state.session[len(state.session)-1]
+//   total_minutes := time.duration_minutes(time.diff(first_entry.t, last_entry.t))
+//
+//   x_axis_width := get_axis_end_x() - get_axis_start_x()
+//
+//
+//   total_by_minute: [dynamic]i32
+//
+//   // Measure
+//   for current_minute in 0..=total_minutes {
+//     append(&total_by_minute, 0)
+//     for entry in state.session {
+//       diff_minutes := time.duration_minutes(time.diff(first_entry.t, entry.t))
+//
+//       if diff_minutes <= current_minute {
+//         total_by_minute[cast(i32)current_minute] += entry.reps
+//       }
+//     }
+//   }
+//
+//   max_total := cast(f32)total_by_minute[len(total_by_minute)-1]
+//   percentage_in_pixels := state.y_axis.height / 100
+//
+//   // Draw
+//   for current_minute in 0..=total_minutes {
+//     current_total := cast(f32)total_by_minute[cast(i32)current_minute]
+//     y_percentage := 100 * (current_total / max_total)
+//
+//     // ticks
+//     current_x := CONTAINER_PADDING + (x_axis_width / cast(f32)total_minutes) * cast(f32)current_minute
+//     start_y := get_axis_y()
+//     end_y := start_y - 20
+//
+//     rl.DrawLineEx(
+//       rl.Vector2 { current_x, start_y },
+//       rl.Vector2 { current_x, end_y },
+//       2,
+//       ANALYTICS_COLOR)
+//
+//     minute_text := fmt.ctprintf("%v", current_minute)
+//     minute_text_position := rl.Vector2 {current_x, start_y + 20}
+//     text_size: f32 = 20
+//     rl.DrawTextEx(rl.GetFontDefault(), minute_text, minute_text_position, text_size, 1, ANALYTICS_COLOR)
+//
+//
+//     circle_y : f32 = start_y - cast(f32)y_percentage * percentage_in_pixels
+//     rl.DrawCircleV(rl.Vector2 {current_x, circle_y }, 5, ANALYTICS_COLOR)
+//
+//   }
+// }
 
-  // Nothing to report
-  if len(state.session) == 0 {
-    return
+render_axis :: proc(container: rl.Rectangle, color: rl.Color) {
+  axis_start := rl.Vector2 {
+    container.x,
+    container.height,
   }
 
-
-  first_entry := state.session[0]
-  last_entry := state.session[len(state.session)-1]
-  total_minutes := time.duration_minutes(time.diff(first_entry.t, last_entry.t))
-
-  x_axis_width := get_axis_end_x() - get_axis_start_x()
-
-
-  total_by_minute: [dynamic]i32
-
-  // Measure
-  for current_minute in 0..=total_minutes {
-    append(&total_by_minute, 0)
-    for entry in state.session {
-      diff_minutes := time.duration_minutes(time.diff(first_entry.t, entry.t))
-
-      if diff_minutes <= current_minute {
-        total_by_minute[cast(i32)current_minute] += entry.reps
-      }
-    }
+  x_axis_end := rl.Vector2 {
+    container.x,
+    container.y,
   }
 
-  max_total := cast(f32)total_by_minute[len(total_by_minute)-1]
-  percentage_in_pixels := state.y_axis.height / 100
-
-  // Draw
-  for current_minute in 0..=total_minutes {
-    current_total := cast(f32)total_by_minute[cast(i32)current_minute]
-    y_percentage := 100 * (current_total / max_total)
-
-    // ticks
-    current_x := SCREEN_PADDING + (x_axis_width / cast(f32)total_minutes) * cast(f32)current_minute
-    start_y := get_axis_y()
-    end_y := start_y - 20
-
-    rl.DrawLineEx(
-      rl.Vector2 { current_x, start_y },
-      rl.Vector2 { current_x, end_y },
-      2,
-      ANALYTICS_COLOR)
-
-    minute_text := fmt.ctprintf("%v", current_minute)
-    minute_text_position := rl.Vector2 {current_x, start_y + 20}
-    text_size: f32 = 20
-    rl.DrawTextEx(rl.GetFontDefault(), minute_text, minute_text_position, text_size, 1, ANALYTICS_COLOR)
-
-
-    circle_y : f32 = start_y - cast(f32)y_percentage * percentage_in_pixels
-    rl.DrawCircleV(rl.Vector2 {current_x, circle_y }, 5, ANALYTICS_COLOR)
-
+  y_axis_end := rl.Vector2 {
+    container.width,
+    container.height,
   }
+
+  rl.DrawLineEx(axis_start, x_axis_end, 5, color)
+  rl.DrawLineEx(axis_start, y_axis_end, 5, color)
 }
 
-render_axis :: proc(state: ^State, color: rl.Color) {
-  rl.DrawLineEx(state.x_axis.start, state.x_axis.end, 5, color)
-  rl.DrawLineEx(state.y_axis.start, state.y_axis.end, 5, color)
-}
-
-render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
+render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f32) {
   height := entry.reps * COLUMN_MULTIPLIER
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
 
@@ -193,25 +148,24 @@ render_entry :: proc(idx: int, entry: ^Entry, width: f32) {
 
   rl.DrawRectangleRec(
     rl.Rectangle {
-      x = (get_axis_start_x() + offset),
-      y = get_axis_y() - cast(f32) height,
+      x = container.x + offset,
+      y = container.height - cast(f32) height,
       width = width,
       height = cast(f32) height,
     },
     color)
 
   reps_text := fmt.ctprintf("%v", entry.reps)
-  text_x := (get_axis_start_x() + (width / 2) + offset)
-  text_size: f32 = 40
-  position := rl.Vector2 {
-    text_x,
-    get_axis_y() - cast(f32) height - text_size,
+  font_size: f32 = 40
+  text_position := rl.Vector2 {
+    container.x + (width / 2) + offset,
+    container.y - cast(f32) height - font_size,
   }
 
-  rl.DrawTextEx(rl.GetFontDefault(), reps_text, position, text_size, 1, TEXT_COLOR)
+  rl.DrawTextEx(rl.GetFontDefault(), reps_text, text_position, font_size, 1, TEXT_COLOR)
 }
 
-render_total :: proc(state: ^State) {
+render_total :: proc(container: rl.Rectangle, state: ^State) {
   text: cstring
 
   // NOTE(evgheni): this is very program specific at the moment
@@ -245,29 +199,29 @@ render_total :: proc(state: ^State) {
   }
 
   position := rl.Vector2 {
-    state.x_axis.start.x + SCREEN_PADDING,
-    SCREEN_PADDING,
+    container.x + CONTAINER_PADDING,
+    container.y + CONTAINER_PADDING,
   }
 
   rl.DrawTextEx(rl.GetFontDefault(), text, position, 54, 1, TEXT_COLOR)
 }
 
-render_session :: proc(state: ^State) {
-  column_width := get_column_width(state.minutes, cast(i32)len(state.session))
+render_session :: proc(container: rl.Rectangle, state: ^State) {
+  column_width := get_column_width(container, state.minutes, cast(i32)len(state.session))
 
   for &entry, idx in state.session {
-    render_entry(idx, &entry, column_width)
+    render_entry(container, idx, &entry, column_width)
   }
 
-  render_total(state)
+  render_total(container, state)
 }
 
-render_controls :: proc(state: ^State) {
+render_controls :: proc(container: rl.Rectangle, state: ^State) {
   modal_width:f32 = 150
   modal_height:f32 = 60
   modal := rl.Rectangle {
-    x = cast(f32)(rl.GetScreenWidth()/2) - (modal_width/2),
-    y = cast(f32)(rl.GetScreenHeight()/2) - (modal_height/2),
+    x = cast(f32)(container.width/2) - (modal_width/2),
+    y = cast(f32)(container.height/2) - (modal_height/2),
     width = modal_width,
     height = modal_height,
   }
@@ -283,8 +237,9 @@ render_controls :: proc(state: ^State) {
     }
 
     text: cstring = fmt.ctprintf("%v", convert_to_number(state.keys_pressed))
+    font_size: f32 = 50
 
-    rl.DrawTextEx(rl.GetFontDefault(), text, text_position, 50, 4, TEXT_COLOR)
+    rl.DrawTextEx(rl.GetFontDefault(), text, text_position, font_size, 4, TEXT_COLOR)
 
   }
 }
@@ -301,13 +256,6 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
 }
 
 process_input :: proc(state: ^State) {
-
-  // In case window changed
-
-  state.x_axis = get_x_axis()
-  state.y_axis = get_y_axis()
-
-
   // Keyboard
 
   key := rl.GetKeyPressed()
@@ -366,7 +314,7 @@ render_start_screen :: proc(container: rl.Rectangle) {
 
   welcome_text_position := rl.Vector2 {
     container.x + container_middle_width - text_size.x/2,
-    container.y + container_middle_height}
+    container.y + container_middle_height - text_size.y/2}
 
   rl.DrawTextEx(rl.GetFontDefault(), welcome_text, welcome_text_position, font_size, 1, TEXT_COLOR)
 }
@@ -374,10 +322,10 @@ render_start_screen :: proc(container: rl.Rectangle) {
 render :: proc(state: ^State) {
 
   screen := rl.Rectangle {
-    x = 0,
-    y = 0,
-    width = SCREEN_WIDTH,
-    height = SCREEN_HEIGHT
+    x = CONTAINER_PADDING,
+    y = CONTAINER_PADDING,
+    width =  cast(f32) rl.GetScreenWidth() - (CONTAINER_PADDING/2),
+    height = cast(f32) rl.GetScreenHeight() - (CONTAINER_PADDING/2),
   }
 
   if !state.started {
@@ -387,12 +335,12 @@ render :: proc(state: ^State) {
 
   // TODO: fix it!
   if state.analytics {
-    render_axis(state, ANALYTICS_COLOR)
-    render_analytics(state)
+    render_axis(screen, ANALYTICS_COLOR)
+    // render_analytics(state)
   } else {
-    render_axis(state, TEXT_COLOR)
-    render_session(state)
-    render_controls(state)
+    render_axis(screen, TEXT_COLOR)
+    render_session(screen, state)
+    render_controls(screen, state)
   }
 }
 
@@ -405,7 +353,7 @@ main :: proc() {
     // .WINDOW_RESIZABLE,
   })
 
-  rl.InitWindow(1200, 800, "Couch")
+  rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Couch")
 
   defer rl.CloseWindow()
 
@@ -421,6 +369,19 @@ main :: proc() {
     analytics = false,
     started = false,
   }
+
+  // TEST DATA
+  the_beginning := time.now()
+  append(&state.session, Entry{reps = 6, t = the_beginning})
+  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 2 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 4 * time.Minute)})
+  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 7 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 10 * time.Minute)})
+  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 12 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 15 * time.Minute)})
+  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 18 * time.Minute)})
+  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 20 * time.Minute)})
+
 
   parse_args(&state)
 
