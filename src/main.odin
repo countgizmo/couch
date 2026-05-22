@@ -136,8 +136,7 @@ render_axis :: proc(container: rl.Rectangle, color: rl.Color) {
   rl.DrawLineEx(axis_start, y_axis_end, 5, color)
 }
 
-render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f32) {
-  height := entry.reps * COLUMN_MULTIPLIER
+render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f32, max_reps: i32) {
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
 
   color := TEXT_COLOR
@@ -146,12 +145,16 @@ render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f3
     color = TEXT_COLOR_FADED
   }
 
+  percentage_in_pixels := (container.height - CONTAINER_PADDING) / 100
+  column_height_percentage := 100 * (cast(f32)entry.reps / cast(f32)max_reps)
+  column_height := column_height_percentage * percentage_in_pixels
+
   rl.DrawRectangleRec(
     rl.Rectangle {
       x = container.x + offset,
-      y = container.height - cast(f32) height,
+      y = container.height - column_height,
       width = width,
-      height = cast(f32) height,
+      height = column_height,
     },
     color)
 
@@ -159,7 +162,7 @@ render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f3
   font_size: f32 = 40
   text_position := rl.Vector2 {
     container.x + (width / 2) + offset,
-    container.y - cast(f32) height - font_size,
+    container.y - column_height - font_size,
   }
 
   rl.DrawTextEx(rl.GetFontDefault(), reps_text, text_position, font_size, 1, TEXT_COLOR)
@@ -168,9 +171,6 @@ render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f3
 render_total :: proc(container: rl.Rectangle, state: ^State) {
   text: cstring
 
-  // NOTE(evgheni): this is very program specific at the moment
-  // Maybe I will make it more generic in the future if I ever need to.
-  // Now it's targetted for the Maximorum KB program
   if state.exercises == 2 {
     even := false
     total1:i32
@@ -199,8 +199,8 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
   }
 
   position := rl.Vector2 {
-    container.x + CONTAINER_PADDING,
-    container.y + CONTAINER_PADDING,
+    container.x + container.width - CONTAINER_PADDING,
+    container.y + container.height - CONTAINER_PADDING,
   }
 
   rl.DrawTextEx(rl.GetFontDefault(), text, position, 54, 1, TEXT_COLOR)
@@ -208,12 +208,17 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
   column_width := get_column_width(container, state.minutes, cast(i32)len(state.session))
+  max_reps: i32 = 0
 
   for &entry, idx in state.session {
-    render_entry(container, idx, &entry, column_width)
+    if entry.reps > max_reps {
+      max_reps = entry.reps
+    }
   }
 
-  render_total(container, state)
+  for &entry, idx in state.session {
+    render_entry(container, idx, &entry, column_width, max_reps)
+  }
 }
 
 render_controls :: proc(container: rl.Rectangle, state: ^State) {
@@ -276,6 +281,7 @@ process_input :: proc(state: ^State) {
     clear(&state.keys_pressed)
   case .SPACE:
     if !state.started {
+      //TODO: start counting time
       state.started = true
     }
   }
@@ -320,27 +326,51 @@ render_start_screen :: proc(container: rl.Rectangle) {
 }
 
 render :: proc(state: ^State) {
-
-  screen := rl.Rectangle {
-    x = CONTAINER_PADDING,
-    y = CONTAINER_PADDING,
-    width =  cast(f32) rl.GetScreenWidth() - (CONTAINER_PADDING/2),
-    height = cast(f32) rl.GetScreenHeight() - (CONTAINER_PADDING/2),
-  }
-
   if !state.started {
+    screen := rl.Rectangle {
+      x = 0,
+      y = 0,
+      width =  cast(f32) rl.GetScreenWidth(),
+      height = cast(f32) rl.GetScreenHeight(),
+    }
+
     render_start_screen(screen)
     return
   }
 
+  // TODO(evgheni): calculate based on percentages - measure the sections vs screen, then
+  // provide the geometry for rectangles.
+  // Currently the section rects calculation is a mess and a lot of manual tweaking.
+  summary_section_height: f32 = 200
+
+  tracking_section := rl.Rectangle {
+    x = CONTAINER_PADDING,
+    y = CONTAINER_PADDING,
+    width =  cast(f32) rl.GetScreenWidth() - CONTAINER_PADDING,
+    height = cast(f32) rl.GetScreenHeight() - CONTAINER_PADDING - summary_section_height,
+  }
+
+  summary_section := rl.Rectangle {
+    x = CONTAINER_PADDING,
+    y = tracking_section.y + tracking_section.height,
+    width =  cast(f32) rl.GetScreenWidth() - CONTAINER_PADDING - tracking_section.x,
+    height = cast(f32) rl.GetScreenHeight() - CONTAINER_PADDING - tracking_section.height - tracking_section.y,
+  }
+
   // TODO: fix it!
   if state.analytics {
-    render_axis(screen, ANALYTICS_COLOR)
+    render_axis(tracking_section, ANALYTICS_COLOR)
     // render_analytics(state)
   } else {
-    render_axis(screen, TEXT_COLOR)
-    render_session(screen, state)
-    render_controls(screen, state)
+    render_axis(tracking_section, TEXT_COLOR)
+    render_session(tracking_section, state)
+    render_controls(tracking_section, state)
+
+
+    rl.DrawRectangleRec(summary_section, rl.PINK)
+
+    render_total(summary_section, state)
+    //TODO render_progress_bar(summary_section, state)
   }
 }
 
