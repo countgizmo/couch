@@ -17,6 +17,7 @@ State :: struct {
 
 
   // Controls
+  started: bool,
   keys_pressed: [dynamic]u8,
   inputting: bool,
   analytics: bool,
@@ -38,6 +39,8 @@ Entry :: struct {
   t: time.Time,
 }
 
+SCREEN_WIDTH :: 1200
+SCREEN_HEIGHT :: 800
 TEXT_COLOR :rl.Color: {128, 128, 0, 255}
 BG_COLOR :rl.Color: {0, 0, 128, 255}
 TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
@@ -174,7 +177,6 @@ render_analytics :: proc(state: ^State) {
 }
 
 render_axis :: proc(state: ^State, color: rl.Color) {
-  log.debugf("start = %v end = %v", state.x_axis.start, state.x_axis.end)
   rl.DrawLineEx(state.x_axis.start, state.x_axis.end, 5, color)
   rl.DrawLineEx(state.y_axis.start, state.y_axis.end, 5, color)
 }
@@ -230,7 +232,7 @@ render_total :: proc(state: ^State) {
       }
     }
 
-    text = fmt.ctprintf("%v / %v", total1, total2)
+    text = fmt.ctprintf("%v | %v", total1, total2)
   } else if state.exercises == 1 {
     total: i32
     for e in state.session {
@@ -324,6 +326,10 @@ process_input :: proc(state: ^State) {
     reps_num := convert_to_number(state.keys_pressed)
     append(&state.session, Entry{reps = reps_num, t = time.now()})
     clear(&state.keys_pressed)
+  case .SPACE:
+    if !state.started {
+      state.started = true
+    }
   }
 }
 
@@ -350,7 +356,36 @@ parse_args :: proc(state: ^State) {
   }
 }
 
+render_start_screen :: proc(container: rl.Rectangle) {
+  container_middle_width := container.width / 2
+  container_middle_height := container.height / 2
+
+  welcome_text := fmt.ctprint("Press SPACE to start")
+  font_size: f32 = 20
+  text_size:= rl.MeasureTextEx(rl.GetFontDefault(), welcome_text, font_size, 1)
+
+  welcome_text_position := rl.Vector2 {
+    container.x + container_middle_width - text_size.x/2,
+    container.y + container_middle_height}
+
+  rl.DrawTextEx(rl.GetFontDefault(), welcome_text, welcome_text_position, font_size, 1, TEXT_COLOR)
+}
+
 render :: proc(state: ^State) {
+
+  screen := rl.Rectangle {
+    x = 0,
+    y = 0,
+    width = SCREEN_WIDTH,
+    height = SCREEN_HEIGHT
+  }
+
+  if !state.started {
+    render_start_screen(screen)
+    return
+  }
+
+  // TODO: fix it!
   if state.analytics {
     render_axis(state, ANALYTICS_COLOR)
     render_analytics(state)
@@ -366,8 +401,8 @@ main :: proc() {
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
-    .WINDOW_MAXIMIZED,
-    .WINDOW_RESIZABLE,
+    // .WINDOW_MAXIMIZED,
+    // .WINDOW_RESIZABLE,
   })
 
   rl.InitWindow(1200, 800, "Couch")
@@ -384,6 +419,7 @@ main :: proc() {
     exercises = 1,
     minutes = 20,
     analytics = false,
+    started = false,
   }
 
   parse_args(&state)
