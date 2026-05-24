@@ -325,6 +325,34 @@ render_start_screen :: proc(container: rl.Rectangle) {
   rl.DrawTextEx(rl.GetFontDefault(), welcome_text, welcome_text_position, font_size, 1, TEXT_COLOR)
 }
 
+render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
+  duration_from_start := time.diff(state.start, time.now())
+  seconds_from_start := cast(f32) time.duration_seconds(duration_from_start)
+
+  total_seconds := cast(f32) (state.minutes * 60)
+  percentage_time_passed := 100 * (cast(f32) seconds_from_start / total_seconds )
+  percentage_in_pixels := container.width / total_seconds
+
+  bar_width: f32
+
+  if seconds_from_start >= total_seconds {
+    bar_width = container.width
+  } else {
+    bar_width = percentage_in_pixels* cast(f32) seconds_from_start
+  }
+  log.debugf("Full width = %v ; bar width = %v ; in px = %v", container.width, bar_width, percentage_in_pixels)
+  log.debugf("Seconds from start = %v, total = %v, Percentage = %v", seconds_from_start, total_seconds, percentage_time_passed)
+
+  bar := rl.Rectangle {
+    x = container.x,
+    y = container.y,
+    width = bar_width,
+    height = container.height,
+  }
+
+  rl.DrawRectangleRec(bar, TEXT_COLOR)
+}
+
 render :: proc(state: ^State) {
   if !state.started {
     screen := rl.Rectangle {
@@ -365,12 +393,19 @@ render :: proc(state: ^State) {
     render_axis(tracking_section, TEXT_COLOR)
     render_session(tracking_section, state)
     render_controls(tracking_section, state)
-
-
-    rl.DrawRectangleRec(summary_section, rl.PINK)
-
     render_total(summary_section, state)
-    //TODO render_progress_bar(summary_section, state)
+
+
+    progress_section := rl.Rectangle {
+      x = summary_section.x,
+      y = summary_section.y,
+      width = summary_section.width - CONTAINER_PADDING - 40,
+      height = summary_section.height,
+    }
+    // DEBUG
+    rl.DrawRectangleRec(progress_section, rl.PINK)
+
+    render_progress_bar(progress_section, state)
   }
 }
 
@@ -388,14 +423,14 @@ main :: proc() {
   defer rl.CloseWindow()
 
   rl.SetTargetFPS(30)
-  rl.EnableEventWaiting()
+  // rl.EnableEventWaiting()
   rl.SetExitKey(.KEY_NULL);
 
 
   state := State {
     start = time.now(),
     exercises = 1,
-    minutes = 20,
+    minutes = 1,
     analytics = false,
     started = true,
   }
