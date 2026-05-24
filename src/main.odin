@@ -9,6 +9,7 @@ import rl "vendor:raylib"
 
 State :: struct {
   start: time.Time,
+  seconds_from_start: f32,
   session: [dynamic]Entry,
 
   // Setup
@@ -18,6 +19,7 @@ State :: struct {
 
   // Controls
   started: bool,
+  paused: bool,
   keys_pressed: [dynamic]u8,
   inputting: bool,
   analytics: bool,
@@ -37,6 +39,10 @@ TEXT_COLOR :rl.Color: {128, 128, 0, 255}
 BG_COLOR :rl.Color: {0, 0, 128, 255}
 TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
 ANALYTICS_COLOR :rl.Color: {128, 128, 128, 255}
+
+minutes_to_seconds :: proc(minutes: i32) -> f32 {
+  return cast(f32) minutes * 60
+}
 
 get_column_width :: proc(container: rl.Rectangle, chunks: i32, count: i32) -> f32 {
   chunks_based := container.width / cast(f32)chunks
@@ -261,6 +267,13 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
 }
 
 process_input :: proc(state: ^State) {
+
+  // Time
+  if !state.paused {
+    state.seconds_from_start += rl.GetFrameTime()
+  }
+
+
   // Keyboard
 
   key := rl.GetKeyPressed()
@@ -281,8 +294,10 @@ process_input :: proc(state: ^State) {
     clear(&state.keys_pressed)
   case .SPACE:
     if !state.started {
-      //TODO: start counting time
+      state.start = time.now()
       state.started = true
+    } else {
+      state.paused = !state.paused
     }
   }
 }
@@ -326,22 +341,16 @@ render_start_screen :: proc(container: rl.Rectangle) {
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
-  duration_from_start := time.diff(state.start, time.now())
-  seconds_from_start := cast(f32) time.duration_seconds(duration_from_start)
-
-  total_seconds := cast(f32) (state.minutes * 60)
-  percentage_time_passed := 100 * (cast(f32) seconds_from_start / total_seconds )
+  total_seconds := minutes_to_seconds(state.minutes)
   percentage_in_pixels := container.width / total_seconds
 
   bar_width: f32
 
-  if seconds_from_start >= total_seconds {
+  if state.seconds_from_start >= total_seconds {
     bar_width = container.width
   } else {
-    bar_width = percentage_in_pixels* cast(f32) seconds_from_start
+    bar_width = percentage_in_pixels * state.seconds_from_start
   }
-  log.debugf("Full width = %v ; bar width = %v ; in px = %v", container.width, bar_width, percentage_in_pixels)
-  log.debugf("Seconds from start = %v, total = %v, Percentage = %v", seconds_from_start, total_seconds, percentage_time_passed)
 
   bar := rl.Rectangle {
     x = container.x,
@@ -350,6 +359,7 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
     height = container.height,
   }
 
+  rl.DrawRectangleLinesEx(container, 2, TEXT_COLOR)
   rl.DrawRectangleRec(bar, TEXT_COLOR)
 }
 
@@ -395,16 +405,12 @@ render :: proc(state: ^State) {
     render_controls(tracking_section, state)
     render_total(summary_section, state)
 
-
     progress_section := rl.Rectangle {
       x = summary_section.x,
       y = summary_section.y,
       width = summary_section.width - CONTAINER_PADDING - 40,
       height = summary_section.height,
     }
-    // DEBUG
-    rl.DrawRectangleRec(progress_section, rl.PINK)
-
     render_progress_bar(progress_section, state)
   }
 }
@@ -423,16 +429,15 @@ main :: proc() {
   defer rl.CloseWindow()
 
   rl.SetTargetFPS(30)
-  // rl.EnableEventWaiting()
   rl.SetExitKey(.KEY_NULL);
 
 
   state := State {
-    start = time.now(),
     exercises = 1,
     minutes = 1,
     analytics = false,
-    started = true,
+    started = false,
+    paused = false,
   }
 
   // TEST DATA
