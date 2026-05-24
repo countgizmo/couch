@@ -420,8 +420,8 @@ main :: proc() {
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
-    // .WINDOW_MAXIMIZED,
-    // .WINDOW_RESIZABLE,
+    .WINDOW_MAXIMIZED,
+    .WINDOW_RESIZABLE,
   })
 
   rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Couch")
@@ -434,30 +434,11 @@ main :: proc() {
 
   state := State {
     exercises = 1,
-    minutes = 1,
+    minutes = 20,
     analytics = false,
     started = false,
     paused = false,
   }
-
-  // TEST DATA
-  the_beginning := time.now()
-  append(&state.session, Entry{reps = 6, t = the_beginning})
-  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 2 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 4 * time.Minute)})
-  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 7 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 10 * time.Minute)})
-  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 12 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 15 * time.Minute)})
-  append(&state.session, Entry{ reps = 8, t = time.time_add(the_beginning, 18 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 20 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 22 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 24 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 25 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 27 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 28 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 30 * time.Minute)})
-  append(&state.session, Entry{ reps = 6, t = time.time_add(the_beginning, 34 * time.Minute)})
 
   parse_args(&state)
 
