@@ -269,7 +269,7 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
 process_input :: proc(state: ^State) {
 
   // Time
-  if !state.paused {
+  if !state.paused && state.started {
     state.seconds_from_start += rl.GetFrameTime()
   }
 
