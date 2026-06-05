@@ -11,6 +11,10 @@ State :: struct {
   start: time.Time,
   seconds_from_start: f32,
   session: [dynamic]Entry,
+  started: bool,
+  paused: bool,
+  done: bool,
+
 
   // Setup
   exercises: i32,
@@ -18,8 +22,6 @@ State :: struct {
 
 
   // Controls
-  started: bool,
-  paused: bool,
   keys_pressed: [dynamic]u8,
   inputting: bool,
   analytics: bool,
@@ -273,6 +275,13 @@ process_input :: proc(state: ^State) {
     state.seconds_from_start += rl.GetFrameTime()
   }
 
+  // Are we done yet?
+  total_seconds := minutes_to_seconds(state.minutes)
+  if state.seconds_from_start >= total_seconds {
+    state.done = true
+    state.paused = true
+  }
+
 
   // Keyboard
 
@@ -346,7 +355,7 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
 
   bar_width: f32
 
-  if state.seconds_from_start >= total_seconds {
+  if state.done {
     bar_width = container.width
   } else {
     bar_width = percentage_in_pixels * state.seconds_from_start
@@ -361,6 +370,21 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
 
   rl.DrawRectangleLinesEx(container, 2, TEXT_COLOR)
   rl.DrawRectangleRec(bar, TEXT_COLOR)
+
+  if state.done {
+    done_text := fmt.ctprint("Done")
+    font_size: f32 = 40
+    text_size:= rl.MeasureTextEx(rl.GetFontDefault(), done_text, font_size, 1)
+
+    bar_middle_width := bar.width / 2
+    bar_middle_height := bar.height / 2
+
+    done_text_position := rl.Vector2 {
+      bar.x + bar_middle_width - text_size.x/2,
+      bar.y + bar_middle_height - text_size.y/2}
+
+    rl.DrawTextEx(rl.GetFontDefault(), done_text, done_text_position, font_size, 1, BG_COLOR)
+  }
 }
 
 render :: proc(state: ^State) {
