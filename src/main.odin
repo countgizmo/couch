@@ -127,17 +127,17 @@ get_column_width :: proc(container: rl.Rectangle, chunks: i32, count: i32) -> f3
 render_axis :: proc(container: rl.Rectangle, color: rl.Color) {
   axis_start := rl.Vector2 {
     container.x,
-    container.height,
+    container.y + container.height,
   }
 
   x_axis_end := rl.Vector2 {
-    container.x,
-    container.y,
+    container.x + container.width,
+    container.y + container.height,
   }
 
   y_axis_end := rl.Vector2 {
-    container.width,
-    container.height,
+    container.x,
+    container.y,
   }
 
   rl.DrawLineEx(axis_start, x_axis_end, 5, color)
@@ -159,7 +159,7 @@ render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f3
 
   column := rl.Rectangle {
     x = container.x + offset,
-    y = container.height - column_height,
+    y = container.y + container.height - column_height,
     width = width,
     height = column_height,
   }
@@ -194,24 +194,24 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
       }
     }
 
-    text = fmt.ctprintf("%v | %v", total1, total2)
+    text = fmt.ctprintf("TOTAL: %v | %v", total1, total2)
   } else if state.exercises == 1 {
     total: i32
     for e in state.session {
       total += e.reps
     }
 
-    text = fmt.ctprintf("%v", total)
+    text = fmt.ctprintf("TOTAL: %v", total)
   } else {
     text = "WTF"
   }
 
   position := rl.Vector2 {
-    container.x + container.width - CONTAINER_PADDING - 20,
-    container.y + container.height - CONTAINER_PADDING - 10,
+    container.x,
+    container.y,
   }
 
-  rl.DrawTextEx(rl.GetFontDefault(), text, position, 54, 1, TEXT_COLOR)
+  rl.DrawTextEx(rl.GetFontDefault(), text, position, 50, 1, TEXT_COLOR)
 }
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
@@ -368,7 +368,7 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
     height = container.height,
   }
 
-  rl.DrawRectangleLinesEx(container, 2, TEXT_COLOR)
+  rl.DrawRectangleLinesEx(container, 5, TEXT_COLOR)
   rl.DrawRectangleRec(bar, TEXT_COLOR)
 
   if state.done {
@@ -403,19 +403,27 @@ render :: proc(state: ^State) {
   // TODO(evgheni): calculate based on percentages - measure the sections vs screen, then
   // provide the geometry for rectangles.
   // Currently the section rects calculation is a mess and a lot of manual tweaking.
+
+  info_section := rl.Rectangle {
+    x = CONTAINER_PADDING,
+    y = CONTAINER_PADDING,
+    width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
+    height = 50,
+  }
+
   summary_section_height: f32 = 200
 
   tracking_section := rl.Rectangle {
     x = CONTAINER_PADDING,
-    y = CONTAINER_PADDING,
-    width =  cast(f32) rl.GetScreenWidth() - CONTAINER_PADDING,
-    height = cast(f32) rl.GetScreenHeight() - CONTAINER_PADDING - summary_section_height,
+    y = CONTAINER_PADDING + info_section.y + info_section.height,
+    width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
+    height = cast(f32) rl.GetScreenHeight() - CONTAINER_PADDING - summary_section_height - info_section.height,
   }
 
-  summary_section := rl.Rectangle {
+  progress_section := rl.Rectangle {
     x = CONTAINER_PADDING,
-    y = tracking_section.y + tracking_section.height,
-    width =  cast(f32) rl.GetScreenWidth() - CONTAINER_PADDING - tracking_section.x,
+    y = CONTAINER_PADDING + tracking_section.y + tracking_section.height,
+    width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
     height = cast(f32) rl.GetScreenHeight() - CONTAINER_PADDING - tracking_section.height - tracking_section.y,
   }
 
@@ -424,17 +432,10 @@ render :: proc(state: ^State) {
     render_axis(tracking_section, ANALYTICS_COLOR)
     // render_analytics(state)
   } else {
+    render_total(info_section, state)
     render_axis(tracking_section, TEXT_COLOR)
     render_session(tracking_section, state)
     render_controls(tracking_section, state)
-    render_total(summary_section, state)
-
-    progress_section := rl.Rectangle {
-      x = summary_section.x,
-      y = summary_section.y,
-      width = summary_section.width - CONTAINER_PADDING - 40,
-      height = summary_section.height,
-    }
     render_progress_bar(progress_section, state)
   }
 }
@@ -452,9 +453,8 @@ main :: proc() {
 
   defer rl.CloseWindow()
 
-  rl.SetTargetFPS(30)
+  rl.SetTargetFPS(15)
   rl.SetExitKey(.KEY_NULL);
-
 
   state := State {
     exercises = 1,
