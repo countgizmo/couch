@@ -46,6 +46,20 @@ minutes_to_seconds :: proc(minutes: i32) -> f32 {
   return cast(f32) minutes * 60
 }
 
+render_text_in_middle :: proc (container: rl.Rectangle, text: string, font_size: f32, color: rl.Color) {
+    c_text := fmt.ctprint(text)
+    text_size:= rl.MeasureTextEx(rl.GetFontDefault(), c_text, font_size, 1)
+
+    container_middle_width := container.width / 2
+    container_middle_height := container.height / 2
+
+    text_position := rl.Vector2 {
+      container.x + container_middle_width - text_size.x/2,
+      container.y + container_middle_height - text_size.y/2}
+
+    rl.DrawTextEx(rl.GetFontDefault(), c_text, text_position, font_size, 2, color)
+}
+
 get_column_width :: proc(container: rl.Rectangle, chunks: i32, count: i32) -> f32 {
   chunks_based := container.width / cast(f32)chunks
 
@@ -215,6 +229,16 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
+  hr_container := rl.Rectangle {
+    x = container.x + (container.width/2),
+    y = container.y,
+    width = container.width/2,
+    height = container.height,
+  }
+
+  hr_text := fmt.tprintf("HR: %d", heart_rate)
+  font_size: f32 = 50
+  render_text_in_middle(hr_container, hr_text, font_size, TEXT_COLOR)
 }
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
@@ -341,15 +365,9 @@ render_start_screen :: proc(container: rl.Rectangle) {
   container_middle_width := container.width / 2
   container_middle_height := container.height / 2
 
-  welcome_text := fmt.ctprint("Press SPACE to start")
+  welcome_text := "Press SPACE to start"
   font_size: f32 = 20
-  text_size:= rl.MeasureTextEx(rl.GetFontDefault(), welcome_text, font_size, 1)
-
-  welcome_text_position := rl.Vector2 {
-    container.x + container_middle_width - text_size.x/2,
-    container.y + container_middle_height - text_size.y/2}
-
-  rl.DrawTextEx(rl.GetFontDefault(), welcome_text, welcome_text_position, font_size, 1, TEXT_COLOR)
+  render_text_in_middle(container, welcome_text, font_size, TEXT_COLOR)
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
@@ -375,18 +393,7 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
   rl.DrawRectangleRec(bar, TEXT_COLOR)
 
   if state.done {
-    done_text := fmt.ctprint("Done")
-    font_size: f32 = 40
-    text_size:= rl.MeasureTextEx(rl.GetFontDefault(), done_text, font_size, 1)
-
-    bar_middle_width := bar.width / 2
-    bar_middle_height := bar.height / 2
-
-    done_text_position := rl.Vector2 {
-      bar.x + bar_middle_width - text_size.x/2,
-      bar.y + bar_middle_height - text_size.y/2}
-
-    rl.DrawTextEx(rl.GetFontDefault(), done_text, done_text_position, font_size, 1, BG_COLOR)
+    render_text_in_middle(bar, "Done", 40, BG_COLOR)
   }
 }
 

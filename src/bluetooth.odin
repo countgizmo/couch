@@ -259,6 +259,7 @@ on_hr_value_update :: proc "c" (self: ns.id, cmd: ns.SEL, peripheral: ns.id, cha
   hr_data := hr_characteristic->value()
   hr_data_len := hr_data->length()
   hr_data_buf := (cast([^]u8) Data_bytes(hr_data))[:int(hr_data_len)]
+  heart_rate = hr_data_buf[1]
 
 
   fmt.println("HR Data =", hr_data_buf, "HR = ", hr_data_buf[1])
@@ -275,6 +276,7 @@ foreign cf {
 }
 
 whoop: ^CBPeripheral
+heart_rate: u8
 
 gizmowhoop :: "8B8083C3-6488-C38B-B486-BE0706A13D44"
 
