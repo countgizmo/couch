@@ -217,6 +217,21 @@ on_connect :: proc "c" (self: ns.id, cmd: ns.SEL, central: ns.id, peripheral: ns
   services->release()
 }
 
+on_disconnect :: proc "c" (self: ns.id, cmd: ns.SEL, central: ns.id, peripheral: ns.id, error: ns.id) {
+  context = runtime.default_context()
+  mgr := cast(^CBCentralManager)central
+  per := cast(^CBPeripheral) peripheral
+
+  if error == nil {
+    fmt.println("disconnected cleanly (no error)")
+    return
+  }
+  err := cast(^ns.Error) error
+  fmt.println("disconnect error:", err->localizedDescription()->odinString(), "code:", err->code())
+
+  mgr->connectPeripheral(whoop, nil)
+}
+
 on_peripheral_services_discover :: proc "c" (self: ns.id, cmd: ns.SEL, peripheral: ns.id, error: rawptr) {
   context = runtime.default_context()
   per := cast(^CBPeripheral) peripheral
@@ -304,6 +319,11 @@ init_whoop_reading :: proc() -> ^CBCentralManager {
     fmt.println("ERROR: failed to register connect callback")
   }
 
+  sel = ns.sel_registerName("centralManager:didDisconnectPeripheral:error:")
+  if !ns.class_addMethod(cls, sel, auto_cast on_disconnect, "v@:@@@") {
+    fmt.println("ERROR: failed to register disconnect callback")
+  }
+
   sel = ns.sel_registerName("peripheral:didDiscoverServices:")
   if !ns.class_addMethod(cls, sel, auto_cast on_peripheral_services_discover, "v@:@@") {
     fmt.println("ERROR: failed to register peripheral services discover callback")
@@ -319,7 +339,6 @@ init_whoop_reading :: proc() -> ^CBCentralManager {
     fmt.println("ERROR: failed to register hr value update callback")
   }
 
-
   // Create instance
   ns.objc_registerClassPair(cls)
   inst := ns.class_createInstance(cls, 0)
@@ -327,17 +346,4 @@ init_whoop_reading :: proc() -> ^CBCentralManager {
   my_central_manager = my_central_manager->initWithDelegateQueue(inst, nil)
 
   return my_central_manager
-  //
-  // whoop_connected := false
-  //
-  // for {
-  //   CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.5, false)
-  //   if whoop != nil && !whoop_connected {
-  //     fmt.println(">>> WHOOP DETECTED = ", whoop->name()->odinString())
-  //     my_central_manager->connectPeripheral(whoop, nil)
-  //     whoop_connected = true
-  //   }
-  // }
-  //
-  // whoop->release()
 }
