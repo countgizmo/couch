@@ -34,7 +34,7 @@ Entry :: struct {
 
 SCREEN_WIDTH :: 1200
 SCREEN_HEIGHT :: 800
-CONTAINER_PADDING :: 50
+CONTAINER_PADDING :: 25
 COLUMN_PADDING: f32 = 10
 
 TEXT_COLOR :rl.Color: {128, 128, 0, 255}
@@ -211,7 +211,7 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
     container.y,
   }
 
-  rl.DrawTextEx(rl.GetFontDefault(), text, position, 50, 1, TEXT_COLOR)
+  rl.DrawTextEx(rl.GetFontDefault(), text, position, 50, 2, TEXT_COLOR)
 }
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
@@ -400,31 +400,30 @@ render :: proc(state: ^State) {
     return
   }
 
-  // TODO(evgheni): calculate based on percentages - measure the sections vs screen, then
-  // provide the geometry for rectangles.
-  // Currently the section rects calculation is a mess and a lot of manual tweaking.
+  window_height := cast(f32) rl.GetScreenHeight()
+  info_section_height     := window_height * 10 / 100
+  progress_section_height := window_height * 20 / 100
 
   info_section := rl.Rectangle {
     x = CONTAINER_PADDING,
     y = CONTAINER_PADDING,
     width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
-    height = 50,
+    height = info_section_height - CONTAINER_PADDING,
   }
-
-  summary_section_height: f32 = 200
 
   tracking_section := rl.Rectangle {
     x = CONTAINER_PADDING,
     y = CONTAINER_PADDING + info_section.y + info_section.height,
     width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
-    height = cast(f32) rl.GetScreenHeight() - CONTAINER_PADDING - summary_section_height - info_section.height,
+    // Whatever is left is used for the middle section
+    height = window_height - info_section_height - progress_section_height - CONTAINER_PADDING,
   }
 
   progress_section := rl.Rectangle {
     x = CONTAINER_PADDING,
     y = CONTAINER_PADDING + tracking_section.y + tracking_section.height,
     width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
-    height = cast(f32) rl.GetScreenHeight() - CONTAINER_PADDING - tracking_section.height - tracking_section.y,
+    height = progress_section_height - CONTAINER_PADDING - CONTAINER_PADDING,
   }
 
   // TODO: fix it!
