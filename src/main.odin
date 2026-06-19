@@ -214,6 +214,9 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
   rl.DrawTextEx(rl.GetFontDefault(), text, position, 50, 2, TEXT_COLOR)
 }
 
+render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
+}
+
 render_session :: proc(container: rl.Rectangle, state: ^State) {
   column_width := get_column_width(container, state.minutes, cast(i32)len(state.session))
   max_reps: i32 = 0
@@ -432,6 +435,7 @@ render :: proc(state: ^State) {
     // render_analytics(state)
   } else {
     render_total(info_section, state)
+    render_heart_rate(info_section, state)
     render_axis(tracking_section, TEXT_COLOR)
     render_session(tracking_section, state)
     render_controls(tracking_section, state)
@@ -441,6 +445,8 @@ render :: proc(state: ^State) {
 
 main :: proc() {
   context.logger = log.create_console_logger()
+
+  cb_central_manager := init_whoop_reading()
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
@@ -465,11 +471,20 @@ main :: proc() {
 
   parse_args(&state)
 
+  whoop_connected := false
+
   for !rl.WindowShouldClose() {
+    if whoop != nil && !whoop_connected {
+      fmt.println(">>> WHOOP DETECTED = ", whoop->name()->odinString())
+      cb_central_manager->connectPeripheral(whoop, nil)
+      whoop_connected = true
+    }
     rl.BeginDrawing()
     rl.ClearBackground(BG_COLOR)
     process_input(&state)
     render(&state)
     rl.EndDrawing()
   }
+
+  whoop->release()
 }
