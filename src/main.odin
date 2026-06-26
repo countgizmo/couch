@@ -5,7 +5,31 @@ import "core:time"
 import "core:log"
 import "core:strconv"
 import "core:os"
+import "core:math"
 import rl "vendor:raylib"
+
+Animation :: struct {
+  elapsed: f32,
+  duration: f32,
+}
+
+animate_beating_rect :: proc(animation: Animation, rect: ^rl.Rectangle) {
+  from: f32 = rect.width;
+  to: f32 = rect.width * 1.2;
+
+  // Experiment 1: animate and stop
+  // t_raw := animation.elapsed / animation.duration
+  // t_normal := math.clamp(t_raw, 0.0, 1.0)
+
+  // Experiment 2: bounce
+  t := (math.sin(animation.elapsed * 2) + 1) / 2
+  next_value := from + (to - from) * t
+
+  rect.width = next_value
+  rect.height = next_value
+
+  rl.DrawRectangleRec(rect^, TEXT_COLOR)
+}
 
 State :: struct {
   start: time.Time,
@@ -25,6 +49,8 @@ State :: struct {
   keys_pressed: [dynamic]u8,
   inputting: bool,
   analytics: bool,
+
+  animations: [dynamic]Animation
 }
 
 Entry :: struct {
@@ -298,7 +324,7 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
     return result
 }
 
-process_input :: proc(state: ^State) {
+update :: proc(state: ^State) {
 
   // Time
   if !state.paused && state.started {
@@ -339,6 +365,9 @@ process_input :: proc(state: ^State) {
       state.paused = !state.paused
     }
   }
+
+  // Animation
+  state.animations[0].elapsed += rl.GetFrameTime()
 }
 
 parse_args :: proc(state: ^State) {
@@ -410,6 +439,15 @@ render :: proc(state: ^State) {
     }
 
     render_start_screen(screen)
+
+    test_rect := rl.Rectangle {
+      x = 100,
+      y = 100,
+      width = 100,
+      height = 100,
+    }
+    animate_beating_rect(state.animations[0], &test_rect)
+
     return
   }
 
@@ -468,7 +506,7 @@ main :: proc() {
 
   defer rl.CloseWindow()
 
-  rl.SetTargetFPS(15)
+  rl.SetTargetFPS(30)
   rl.SetExitKey(.KEY_NULL);
 
   state := State {
@@ -478,6 +516,8 @@ main :: proc() {
     started = false,
     paused = false,
   }
+
+  append(&state.animations, Animation { duration = 1.5 })
 
   parse_args(&state)
 
@@ -491,7 +531,7 @@ main :: proc() {
     }
     rl.BeginDrawing()
     rl.ClearBackground(BG_COLOR)
-    process_input(&state)
+    update(&state)
     render(&state)
     rl.EndDrawing()
   }
