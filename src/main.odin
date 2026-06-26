@@ -34,7 +34,7 @@ Entry :: struct {
 
 SCREEN_WIDTH :: 1200
 SCREEN_HEIGHT :: 800
-CONTAINER_PADDING :: 25
+CONTAINER_PADDING :: 40
 COLUMN_PADDING: f32 = 10
 
 TEXT_COLOR :rl.Color: {128, 128, 0, 255}
@@ -191,7 +191,7 @@ render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f3
 }
 
 render_total :: proc(container: rl.Rectangle, state: ^State) {
-  text: cstring
+  text: string
 
   if state.exercises == 2 {
     even := false
@@ -208,24 +208,27 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
       }
     }
 
-    text = fmt.ctprintf("TOTAL: %v | %v", total1, total2)
+    text = fmt.tprintf("TOTAL: %v | %v", total1, total2)
   } else if state.exercises == 1 {
     total: i32
     for e in state.session {
       total += e.reps
     }
 
-    text = fmt.ctprintf("TOTAL: %v", total)
+    text = fmt.tprintf("TOTAL: %v", total)
   } else {
     text = "WTF"
   }
 
-  position := rl.Vector2 {
-    container.x,
-    container.y,
+  total_container := rl.Rectangle {
+    x = container.x,
+    y = container.y,
+    width = container.width/2,
+    height = container.height,
   }
 
-  rl.DrawTextEx(rl.GetFontDefault(), text, position, 50, 2, TEXT_COLOR)
+  font_size: f32 = 50
+  render_text_in_middle(total_container, text, font_size, TEXT_COLOR)
 }
 
 render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
@@ -412,7 +415,8 @@ render :: proc(state: ^State) {
 
   window_height := cast(f32) rl.GetScreenHeight()
   info_section_height     := window_height * 10 / 100
-  progress_section_height := window_height * 20 / 100
+  tracking_section_height := window_height * 60 / 100
+  progress_section_height := window_height - info_section_height - tracking_section_height - CONTAINER_PADDING
 
   info_section := rl.Rectangle {
     x = CONTAINER_PADDING,
@@ -425,15 +429,14 @@ render :: proc(state: ^State) {
     x = CONTAINER_PADDING,
     y = CONTAINER_PADDING + info_section.y + info_section.height,
     width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
-    // Whatever is left is used for the middle section
-    height = window_height - info_section_height - progress_section_height - CONTAINER_PADDING,
+    height = tracking_section_height - CONTAINER_PADDING,
   }
 
   progress_section := rl.Rectangle {
     x = CONTAINER_PADDING,
     y = CONTAINER_PADDING + tracking_section.y + tracking_section.height,
     width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
-    height = progress_section_height - CONTAINER_PADDING - CONTAINER_PADDING,
+    height = progress_section_height - CONTAINER_PADDING,
   }
 
   // TODO: fix it!
