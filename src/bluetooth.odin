@@ -171,8 +171,6 @@ on_state_change :: proc "c" (self: ns.id, cmd: ns.SEL, central: ns.id) {
   mgr := cast(^CBCentralManager)central
   state := mgr->state()
 
-  fmt.println("state =", mgr->state())
-
   if mgr->state() == .PoweredOn {
     mgr->scanForPeripheralsWithServices(nil, nil)
   }
@@ -201,7 +199,6 @@ on_connect :: proc "c" (self: ns.id, cmd: ns.SEL, central: ns.id, peripheral: ns
   mgr := cast(^CBCentralManager)central
   per := cast(^CBPeripheral) peripheral
   per_name := per->name()
-  fmt.println(">>> CONNECTED TO: ", per_name->odinString())
   per->setDelegate(self)
 
 
@@ -242,9 +239,6 @@ on_peripheral_services_discover :: proc "c" (self: ns.id, cmd: ns.SEL, periphera
   // We asked for one service, sowe we get the first one
   service := per_services->objectAs(0, ^CBService)
 
-  fmt.println("Heart Rate Service discovered = ", service->UUID()->UUIDString()->odinString())
-
-
   //Heart Rate Measurement - 0x2A37
   hr_measure := ns.Data_alloc()->initWithBytes([]byte{0x2A, 0x37})
   hr_measure_uuid := CBUUID_UUIDWithData(hr_measure)
@@ -275,9 +269,6 @@ on_hr_value_update :: proc "c" (self: ns.id, cmd: ns.SEL, peripheral: ns.id, cha
   hr_data_len := hr_data->length()
   hr_data_buf := (cast([^]u8) Data_bytes(hr_data))[:int(hr_data_len)]
   heart_rate = hr_data_buf[1]
-
-
-  fmt.println("HR Data =", hr_data_buf, "HR = ", hr_data_buf[1])
 }
 
 // I don't have neverending loop here, so... this!
@@ -297,7 +288,6 @@ gizmowhoop :: "8B8083C3-6488-C38B-B486-BE0706A13D44"
 
 init_whoop_reading :: proc() -> ^CBCentralManager {
   my_central_manager := ns.alloc(CBCentralManager)
-  fmt.println("================== Starting Bluetooth Probe ====================================")
 
   // Delegate Class
   NSObject := ns.objc_lookUpClass("NSObject")
