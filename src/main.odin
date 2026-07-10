@@ -73,6 +73,7 @@ COLUMN_PADDING: f32 = 10
 
 TEXT_COLOR :rl.Color: {128, 128, 0, 255}
 BG_COLOR :rl.Color: {0, 0, 128, 255}
+SHADOW_COLOR :rl.Color: {0, 0, 0, 150}
 TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
 ANALYTICS_COLOR :rl.Color: {128, 128, 128, 255}
 
@@ -296,30 +297,33 @@ render_session :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_controls :: proc(container: rl.Rectangle, state: ^State) {
-  modal_width:f32 = 150
-  modal_height:f32 = 60
-  modal := rl.Rectangle {
-    x = cast(f32)(container.width/2) - (modal_width/2),
-    y = cast(f32)(container.height/2) - (modal_height/2),
-    width = modal_width,
-    height = modal_height,
-  }
-
   if state.inputting {
+    modal_width:f32 = 150
+    modal_height:f32 = 60
+    modal := rl.Rectangle {
+      x = cast(f32)(container.width/2) - (modal_width/2),
+      y = cast(f32)(container.height/2) - (modal_height/2),
+      width = modal_width,
+      height = modal_height,
+    }
+
+    shadow := rl.Rectangle {
+      x = modal.x + 20,
+      y = modal.y + 20,
+      width = modal_width,
+      height = modal_height,
+    }
+
+    rl.DrawRectangleRec(shadow, SHADOW_COLOR)
     rl.DrawRectangleRec(modal, BG_COLOR)
+
 
     rl.DrawRectangleLinesEx(modal, 4, TEXT_COLOR)
 
-    text_position := rl.Vector2 {
-      modal.x + 10,
-      modal.y + 7,
-    }
-
-    text: cstring = fmt.ctprintf("%v", convert_to_number(state.keys_pressed))
+    text := fmt.tprintf("%v", convert_to_number(state.keys_pressed))
     font_size: f32 = 50
 
-    rl.DrawTextEx(rl.GetFontDefault(), text, text_position, font_size, 4, TEXT_COLOR)
-
+    render_text_in_middle(modal, text, font_size, TEXT_COLOR)
   }
 }
 
