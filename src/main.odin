@@ -21,22 +21,10 @@ animate_pulsing :: proc(animation: Animation) -> f32 {
   return next_value
 }
 
-animate_beating_rect :: proc(animation: Animation, rect: ^rl.Rectangle) {
-  from: f32 = rect.width;
-  to: f32 = rect.width * 1.2;
-
-  // Experiment 1: animate and stop
-  // t_raw := animation.elapsed / animation.duration
-  // t_normal := math.clamp(t_raw, 0.0, 1.0)
-
-  // Experiment 2: bounce
-  t := (math.sin(animation.elapsed * 2) + 1) / 2
-  next_value := from + (to - from) * t
-
-  rect.width = next_value
-  rect.height = next_value
-
-  rl.DrawRectangleRec(rect^, TEXT_COLOR)
+animate_linear :: proc(animation: Animation) -> f32 {
+  t_raw := animation.elapsed / animation.duration
+  next_value := math.clamp(t_raw, animation.from, animation.to)
+  return next_value
 }
 
 State :: struct {
@@ -58,7 +46,8 @@ State :: struct {
   inputting: bool,
   analytics: bool,
 
-  animations: [dynamic]Animation
+  // Animation
+  hr_beat_animation: Animation
 }
 
 Entry :: struct {
@@ -267,8 +256,6 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
-  animation := state.animations[1]
-
   hr_container := rl.Rectangle {
     x = container.x + (container.width/2),
     y = container.y,
@@ -276,7 +263,7 @@ render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
     height = container.height,
   }
 
-  font_size := animate_pulsing(animation)
+  font_size := animate_pulsing(state.hr_beat_animation)
   hr_text := fmt.tprintf("%d", heart_rate)
   render_text_in_middle(hr_container, hr_text, font_size, TEXT_COLOR)
 }
@@ -381,8 +368,7 @@ update :: proc(state: ^State) {
   }
 
   // Animation
-  state.animations[0].elapsed += rl.GetFrameTime()
-  state.animations[1].elapsed += rl.GetFrameTime()
+  state.hr_beat_animation.elapsed += rl.GetFrameTime()
 }
 
 parse_args :: proc(state: ^State) {
@@ -455,14 +441,6 @@ render :: proc(state: ^State) {
 
     render_start_screen(screen)
 
-    test_rect := rl.Rectangle {
-      x = 100,
-      y = 100,
-      width = 100,
-      height = 100,
-    }
-    animate_beating_rect(state.animations[0], &test_rect)
-
     return
   }
 
@@ -532,14 +510,11 @@ main :: proc() {
     paused = false,
   }
 
-  append(&state.animations, Animation { duration = 1.5 })
-
-  hr_beat_animation := Animation {
+  state.hr_beat_animation = Animation {
     duration = 10,
     from = 50,
     to = 70,
   }
-  append(&state.animations, hr_beat_animation)
 
   parse_args(&state)
 
