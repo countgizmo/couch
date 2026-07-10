@@ -13,6 +13,7 @@ Animation :: struct {
   duration: f32,
   from: f32,
   to: f32,
+  running: bool,
 }
 
 animate_pulsing :: proc(animation: Animation) -> f32 {
@@ -23,7 +24,9 @@ animate_pulsing :: proc(animation: Animation) -> f32 {
 
 animate_linear :: proc(animation: Animation) -> f32 {
   t_raw := animation.elapsed / animation.duration
-  next_value := math.clamp(t_raw, animation.from, animation.to)
+  t_normal := math.clamp(t_raw, 0.0, 1.0)
+  t_eased := 1 - (1 - t_normal) * (1 - t_normal)
+  next_value := animation.from + (animation.to - animation.from) * t_eased
   return next_value
 }
 
@@ -47,12 +50,20 @@ State :: struct {
   analytics: bool,
 
   // Animation
-  hr_beat_animation: Animation
+  hr_beat_animation: Animation,
+
+  // View
+  bars: [dynamic]BarView
 }
 
 Entry :: struct {
   reps: i32,
   t: time.Time,
+}
+
+BarView :: struct {
+  entry_index: int,
+  animation: Animation,
 }
 
 SCREEN_WIDTH :: 1200
@@ -182,7 +193,9 @@ render_axis :: proc(container: rl.Rectangle, color: rl.Color) {
   rl.DrawLineEx(axis_start, y_axis_end, 5, color)
 }
 
-render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f32, max_reps: i32) {
+render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f32, max_reps: i32) {
+  bar_view := state.bars[idx]
+  entry := state.session[bar_view.entry_index]
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
 
   color := TEXT_COLOR
@@ -191,8 +204,10 @@ render_entry :: proc(container: rl.Rectangle, idx: int, entry: ^Entry, width: f3
     color = TEXT_COLOR_FADED
   }
 
+  max_percentage := animate_linear(bar_view.animation)
+
   percentage_in_pixels := (container.height - CONTAINER_PADDING) / 100
-  column_height_percentage := 100 * (cast(f32)entry.reps / cast(f32)max_reps)
+  column_height_percentage := max_percentage * (cast(f32)entry.reps / cast(f32)max_reps)
   column_height := column_height_percentage * percentage_in_pixels
 
   column := rl.Rectangle {
@@ -278,8 +293,8 @@ render_session :: proc(container: rl.Rectangle, state: ^State) {
     }
   }
 
-  for &entry, idx in state.session {
-    render_entry(container, idx, &entry, column_width, max_reps)
+  for idx in 0..<len(state.bars) {
+    render_entry(container, state, idx, column_width, max_reps)
   }
 }
 
@@ -357,6 +372,15 @@ update :: proc(state: ^State) {
     state.inputting = false
     reps_num := convert_to_number(state.keys_pressed)
     append(&state.session, Entry{reps = reps_num, t = time.now()})
+    append(&state.bars, BarView{
+      entry_index = len(state.session) - 1,
+      animation = Animation {
+        duration = 0.4,
+        from = 0,
+        to = 100,
+        running = true,
+      },
+    })
     clear(&state.keys_pressed)
   case .SPACE:
     if !state.started {
@@ -368,7 +392,18 @@ update :: proc(state: ^State) {
   }
 
   // Animation
-  state.hr_beat_animation.elapsed += rl.GetFrameTime()
+  if state.hr_beat_animation.running {
+    state.hr_beat_animation.elapsed += rl.GetFrameTime()
+  }
+
+  for &bar_view in state.bars {
+    if bar_view.animation.running {
+      bar_view.animation.elapsed += rl.GetFrameTime()
+      if bar_view.animation.elapsed >= bar_view.animation.duration {
+        bar_view.animation.running = false
+      }
+    }
+  }
 }
 
 parse_args :: proc(state: ^State) {
@@ -514,6 +549,7 @@ main :: proc() {
     duration = 10,
     from = 50,
     to = 70,
+    running = true,
   }
 
   parse_args(&state)
