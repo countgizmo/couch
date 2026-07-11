@@ -18,13 +18,20 @@ foreign import media "system:CoreMedia.framework"
 @(default_calling_convention="c")
 foreign media {
   CMSampleBufferGetImageBuffer :: proc(sample_buffer: rawptr) -> rawptr ---
+  kCVPixelBufferPixelFormatTypeKey : ^ns.String
 }
 
 foreign import video "system:CoreVideo.framework"
+
 @(default_calling_convention="c")
 foreign video {
-  CVPixelBufferGetWidth :: proc(pixel_buffer: rawptr) -> rawptr ---
-  CVPixelBufferGetHeight :: proc(pixel_buffer: rawptr) -> rawptr ---
+  CVPixelBufferGetWidth :: proc(pixel_buffer: rawptr) -> uint ---
+  CVPixelBufferGetHeight :: proc(pixel_buffer: rawptr) -> uint ---
+  CVPixelBufferGetPlaneCount :: proc(pixel_buffer: rawptr) -> uint ---
+  CVPixelBufferLockBaseAddress :: proc(pixel_buffer: rawptr, flags: u64) -> i32 ---
+  CVPixelBufferUnlockBaseAddress :: proc(pixel_buffer: rawptr, flags: u64) -> i32 ---
+  CVPixelBufferGetBaseAddressOfPlane :: proc(pixel_buffer: rawptr, plane: i32) -> rawptr ---
+  CVPixelBufferGetBytesPerRowOfPlane :: proc(pixel_buffer: rawptr, plane: i32) -> uint ---
 }
 
 // for the neverending loop
@@ -132,16 +139,41 @@ AVCaptureVideoDataOutput_setSampleBufferDelegateQueue :: proc "c" (self: ^AVCapt
   msgSend(nil, self, "setSampleBufferDelegate:queue:", delegate, queue)
 }
 
+@(objc_type=AVCaptureVideoDataOutput, objc_name="setVideoSettings")
+AVCaptureSession_setVideoSettings :: proc "c" (self: ^AVCaptureVideoDataOutput, settings: ^ns.Dictionary) {
+  msgSend(nil, self, "setVideoSettings:", settings)
+}
+
+
 // Delegate callbacks
 on_output_capture :: proc "c" (self: ns.id, cmd: ns.SEL, output: ns.id, sampleBuffer: ns.id, fromConnection: ns.id) {
   context = runtime.default_context()
   imageBuffer := CMSampleBufferGetImageBuffer(sampleBuffer)
   imageWidth := CVPixelBufferGetWidth(imageBuffer)
   imageHeight := CVPixelBufferGetHeight(imageBuffer)
+  stride := CVPixelBufferGetBytesPerRowOfPlane(imageBuffer, 0)
 
-  fmt.printfln("Width = %d   Height = %d", imageWidth, imageHeight)
+
+  // Lock the buffer
+  CVPixelBufferLockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly)
+  defer CVPixelBufferUnlockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly)
+
+  // Now it's safe to read from it
+  data := cast([^]u8)CVPixelBufferGetBaseAddressOfPlane(imageBuffer, 0)
+  center_pixel := data[(imageHeight/2) * stride + (imageWidth/2)]
+  fmt.printfln("Width = %d  Height = %d  Stride = %d Center Pixel Brightness = %d", imageWidth, imageHeight, stride, center_pixel)
+
 }
 
+///////
+/// Constants
+
+// 420v (aka, we don't care about the color, so use the least memory consuming format)
+kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ::
+    (u32('4') << 24) | (u32('2') << 16) | (u32('0') << 8) | u32('v')
+
+// Only reading the video buffer
+kCVPixelBufferLock_ReadOnly :: 1
 
 //
 // Let Us Rock!!!!
@@ -174,6 +206,11 @@ main :: proc() {
   output := ns.alloc(AVCaptureVideoDataOutput)
   output = output->init()
 
+  // specify output settings
+  chroma_subsampling := ns.Number_numberWithU32(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)
+  output_settings := ns.Dictionary_dictionaryWithObject(chroma_subsampling, kCVPixelBufferPixelFormatTypeKey)
+  output->setVideoSettings(output_settings)
+
   if session->canAddOutput(output) {
     session->addOutput(output)
   } else {
@@ -195,8 +232,6 @@ main :: proc() {
   output_delegate := ns.class_createInstance(cls, 0)
 
   queue := dispatch_queue_create("camera.frames", nil)
-  output->setSampleBufferDelegateQueue(output_delegate, queue)
-
   output->setSampleBufferDelegateQueue(output_delegate, queue)
 
 
