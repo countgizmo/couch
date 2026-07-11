@@ -219,14 +219,16 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
 
   rl.DrawRectangleRec(column, color)
 
-  reps_text := fmt.ctprintf("%v", entry.reps)
-  font_size: f32 = 40
-  text_position := rl.Vector2 {
-    COLUMN_PADDING + column.x,
-    column.y - font_size,
-  }
+  if !bar_view.animation.running {
+    reps_text := fmt.ctprintf("%v", entry.reps)
+    font_size: f32 = 40
+    text_position := rl.Vector2 {
+      COLUMN_PADDING + column.x,
+      column.y - font_size,
+    }
 
-  rl.DrawTextEx(rl.GetFontDefault(), reps_text, text_position, font_size, 1, color)
+    rl.DrawTextEx(rl.GetFontDefault(), reps_text, text_position, font_size, 1, color)
+  }
 }
 
 render_total :: proc(container: rl.Rectangle, state: ^State) {
@@ -465,20 +467,7 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
   }
 }
 
-render :: proc(state: ^State) {
-  if !state.started {
-    screen := rl.Rectangle {
-      x = 0,
-      y = 0,
-      width =  cast(f32) rl.GetScreenWidth(),
-      height = cast(f32) rl.GetScreenHeight(),
-    }
-
-    render_start_screen(screen)
-
-    return
-  }
-
+render_live_session :: proc(state: ^State) {
   window_height := cast(f32) rl.GetScreenHeight()
   info_section_height     := window_height * 10 / 100
   tracking_section_height := window_height * 60 / 100
@@ -505,17 +494,36 @@ render :: proc(state: ^State) {
     height = progress_section_height - CONTAINER_PADDING,
   }
 
+
+  render_total(info_section, state)
+  render_heart_rate(info_section, state)
+  render_axis(tracking_section, TEXT_COLOR)
+  render_session(tracking_section, state)
+  render_controls(tracking_section, state)
+  render_progress_bar(progress_section, state)
+}
+
+render :: proc(state: ^State) {
+  if !state.started {
+    screen := rl.Rectangle {
+      x = 0,
+      y = 0,
+      width =  cast(f32) rl.GetScreenWidth(),
+      height = cast(f32) rl.GetScreenHeight(),
+    }
+
+    render_start_screen(screen)
+
+    return
+  }
+
+
   // TODO: fix it!
   if state.analytics {
-    render_axis(tracking_section, ANALYTICS_COLOR)
+    //render_axis(tracking_section, ANALYTICS_COLOR)
     // render_analytics(state)
   } else {
-    render_total(info_section, state)
-    render_heart_rate(info_section, state)
-    render_axis(tracking_section, TEXT_COLOR)
-    render_session(tracking_section, state)
-    render_controls(tracking_section, state)
-    render_progress_bar(progress_section, state)
+    render_live_session(state)
   }
 }
 
