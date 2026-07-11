@@ -71,10 +71,10 @@ SCREEN_HEIGHT :: 800
 CONTAINER_PADDING :: 40
 COLUMN_PADDING: f32 = 10
 
-TEXT_COLOR :rl.Color: {128, 128, 0, 255}
-BG_COLOR :rl.Color: {0, 0, 128, 255}
+TEXT_COLOR :rl.Color: {255, 255, 85, 255}
+BG_COLOR :rl.Color: {0, 0, 170, 255}
 SHADOW_COLOR :rl.Color: {0, 0, 0, 150}
-TEXT_COLOR_FADED :rl.Color: {128, 128, 0, 150}
+TEXT_COLOR_FADED :rl.Color: {255, 255, 85, 150}
 ANALYTICS_COLOR :rl.Color: {128, 128, 128, 255}
 
 minutes_to_seconds :: proc(minutes: i32) -> f32 {
@@ -473,9 +473,11 @@ render_live_session :: proc(state: ^State) {
   tracking_section_height := window_height * 60 / 100
   progress_section_height := window_height - info_section_height - tracking_section_height - CONTAINER_PADDING
 
+  start_y: f32 = MAIN_MENU_HEIGHT + CONTAINER_PADDING
+
   info_section := rl.Rectangle {
     x = CONTAINER_PADDING,
-    y = CONTAINER_PADDING,
+    y = start_y,
     width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
     height = info_section_height - CONTAINER_PADDING,
   }
@@ -504,19 +506,19 @@ render_live_session :: proc(state: ^State) {
 }
 
 render :: proc(state: ^State) {
+  screen := rl.Rectangle {
+    x = 0,
+    y = 0,
+    width =  cast(f32) rl.GetScreenWidth(),
+    height = cast(f32) rl.GetScreenHeight(),
+  }
+
   if !state.started {
-    screen := rl.Rectangle {
-      x = 0,
-      y = 0,
-      width =  cast(f32) rl.GetScreenWidth(),
-      height = cast(f32) rl.GetScreenHeight(),
-    }
-
     render_start_screen(screen)
-
     return
   }
 
+  render_main_menu(screen, state)
 
   // TODO: fix it!
   if state.analytics {
