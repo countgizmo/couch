@@ -71,12 +71,6 @@ SCREEN_HEIGHT :: 800
 CONTAINER_PADDING :: 40
 COLUMN_PADDING: f32 = 10
 
-TEXT_COLOR :rl.Color: {255, 255, 85, 255}
-BG_COLOR :rl.Color: {0, 0, 170, 255}
-SHADOW_COLOR :rl.Color: {0, 0, 0, 150}
-TEXT_COLOR_FADED :rl.Color: {255, 255, 85, 150}
-ANALYTICS_COLOR :rl.Color: {128, 128, 128, 255}
-
 minutes_to_seconds :: proc(minutes: i32) -> f32 {
   return cast(f32) minutes * 60
 }
@@ -159,16 +153,16 @@ get_column_width :: proc(container: rl.Rectangle, chunks: i32, count: i32) -> f3
 //       rl.Vector2 { current_x, start_y },
 //       rl.Vector2 { current_x, end_y },
 //       2,
-//       ANALYTICS_COLOR)
+//       CGA_PALETTE[4])
 //
 //     minute_text := fmt.ctprintf("%v", current_minute)
 //     minute_text_position := rl.Vector2 {current_x, start_y + 20}
 //     text_size: f32 = 20
-//     rl.DrawTextEx(rl.GetFontDefault(), minute_text, minute_text_position, text_size, 1, ANALYTICS_COLOR)
+//     rl.DrawTextEx(rl.GetFontDefault(), minute_text, minute_text_position, text_size, 1, CGA_PALETTE[4])
 //
 //
 //     circle_y : f32 = start_y - cast(f32)y_percentage * percentage_in_pixels
-//     rl.DrawCircleV(rl.Vector2 {current_x, circle_y }, 5, ANALYTICS_COLOR)
+//     rl.DrawCircleV(rl.Vector2 {current_x, circle_y }, 5, CGA_PALETTE[4])
 //
 //   }
 // }
@@ -198,10 +192,10 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
   entry := state.session[bar_view.entry_index]
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
 
-  color := TEXT_COLOR
+  color := CGA_PALETTE[14]
 
   if idx % 2 == 0 {
-    color = TEXT_COLOR_FADED
+    color = CGA_PALETTE[6]
   }
 
   max_percentage := animate_linear(bar_view.animation)
@@ -269,7 +263,7 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
   }
 
   font_size: f32 = 50
-  render_text_in_middle(total_container, text, font_size, TEXT_COLOR)
+  render_text_in_middle(total_container, text, font_size, CGA_PALETTE[14])
 }
 
 render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
@@ -282,7 +276,7 @@ render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
 
   font_size := animate_pulsing(state.hr_beat_animation)
   hr_text := fmt.tprintf("%d", heart_rate)
-  render_text_in_middle(hr_container, hr_text, font_size, TEXT_COLOR)
+  render_text_in_middle(hr_container, hr_text, font_size, CGA_PALETTE[14])
 }
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
@@ -318,16 +312,16 @@ render_controls :: proc(container: rl.Rectangle, state: ^State) {
       height = modal_height,
     }
 
-    rl.DrawRectangleRec(shadow, SHADOW_COLOR)
-    rl.DrawRectangleRec(modal, BG_COLOR)
+    rl.DrawRectangleRec(shadow, CGA_PALETTE[0])
+    rl.DrawRectangleRec(modal, CGA_PALETTE[1])
 
 
-    rl.DrawRectangleLinesEx(modal, 4, TEXT_COLOR)
+    rl.DrawRectangleLinesEx(modal, 4, CGA_PALETTE[14])
 
     text := fmt.tprintf("%v", convert_to_number(state.keys_pressed))
     font_size: f32 = 50
 
-    render_text_in_middle(modal, text, font_size, TEXT_COLOR)
+    render_text_in_middle(modal, text, font_size, CGA_PALETTE[14])
   }
 }
 
@@ -437,7 +431,7 @@ render_start_screen :: proc(container: rl.Rectangle) {
 
   welcome_text := "Press SPACE to start"
   font_size: f32 = 20
-  render_text_in_middle(container, welcome_text, font_size, TEXT_COLOR)
+  render_text_in_middle(container, welcome_text, font_size, CGA_PALETTE[14])
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
@@ -459,11 +453,11 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
     height = container.height,
   }
 
-  rl.DrawRectangleLinesEx(container, 5, TEXT_COLOR)
-  rl.DrawRectangleRec(bar, TEXT_COLOR)
+  rl.DrawRectangleLinesEx(container, 5, CGA_PALETTE[14])
+  rl.DrawRectangleRec(bar, CGA_PALETTE[14])
 
   if state.done {
-    render_text_in_middle(bar, "Done", 40, BG_COLOR)
+    render_text_in_middle(bar, "Done", 40, CGA_PALETTE[1])
   }
 }
 
@@ -499,7 +493,7 @@ render_live_session :: proc(state: ^State) {
 
   render_total(info_section, state)
   render_heart_rate(info_section, state)
-  render_axis(tracking_section, TEXT_COLOR)
+  render_axis(tracking_section, CGA_PALETTE[14])
   render_session(tracking_section, state)
   render_controls(tracking_section, state)
   render_progress_bar(progress_section, state)
@@ -522,7 +516,7 @@ render :: proc(state: ^State) {
 
   // TODO: fix it!
   if state.analytics {
-    //render_axis(tracking_section, ANALYTICS_COLOR)
+    //render_axis(tracking_section, CGA_PALETTE[4])
     // render_analytics(state)
   } else {
     render_live_session(state)
@@ -573,7 +567,7 @@ main :: proc() {
       whoop_connected = true
     }
     rl.BeginDrawing()
-    rl.ClearBackground(BG_COLOR)
+    rl.ClearBackground(CGA_PALETTE[1])
     update(&state)
     render(&state)
     rl.EndDrawing()
