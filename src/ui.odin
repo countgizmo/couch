@@ -24,13 +24,14 @@ CGA_PALETTE := [16]rl.Color{
     { 252, 252, 252, 255 }, // 15 white
 }
 
-render_main_menu :: proc(container: rl.Rectangle, state: ^State) {
-  menu := rl.Rectangle {
-    x = container.x,
-    y = container.y,
-    width = container.width,
-    height = MAIN_MENU_HEIGHT,
-  }
+Rect :: rl.Rectangle
 
-  rl.DrawRectangleRec(menu, CGA_PALETTE[7])
+cut_top :: proc(r: Rect, h: f32) -> (strip: Rect, rest: Rect) {
+  strip = { r.x, r.y, r.width, h }
+  rest = { r.x, r.y + h, r.width, r.height - h }
+  return
+}
+
+render_main_menu :: proc(container: Rect, state: ^State) {
+  rl.DrawRectangleRec(container, CGA_PALETTE[7])
 }

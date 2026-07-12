@@ -500,19 +500,16 @@ render_live_session :: proc(state: ^State) {
 }
 
 render :: proc(state: ^State) {
-  screen := rl.Rectangle {
-    x = 0,
-    y = 0,
-    width =  cast(f32) rl.GetScreenWidth(),
-    height = cast(f32) rl.GetScreenHeight(),
-  }
+  screen := Rect{0, 0, f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
 
   if !state.started {
     render_start_screen(screen)
     return
   }
 
-  render_main_menu(screen, state)
+  menubar, body := cut_top(screen, MAIN_MENU_HEIGHT)
+
+  render_main_menu(menubar, state)
 
   // TODO: fix it!
   if state.analytics {
