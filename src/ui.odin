@@ -37,11 +37,34 @@ cut_bottom :: proc(r: Rect, h: f32) -> (strip, rest:Rect) {
   return
 }
 
+cut_left :: proc(r: Rect, w: f32) -> (strip, rest: Rect) {
+  strip = { r.x, r.y, w, r.height }
+  rest = { r.x + w, r.y, r.width - w, r.height }
+  return
+}
+
+inset :: proc(r: Rect, dx, dy: f32) -> Rect {
+  return { r.x + dx, r.y + dy, r.width - (2*dx), r.height - (2*dy) }
+}
+
 render_main_menu :: proc(container: Rect, state: ^State) {
   rl.DrawRectangleRec(container, CGA_PALETTE[7])
 }
 
 render_status_bar :: proc(container: Rect, state: ^State) {
   rl.DrawRectangleRec(container, CGA_PALETTE[7])
+
+  help_command_area, rest := cut_left(container, 100)
+  help_command_text_area := inset(help_command_area, 10, 6)
+  help_hint_area, _ := cut_left(rest, 300)
+  help_hint_text_area := inset(help_hint_area, 10, 6)
+
+
+
+  render_text_in_middle(help_command_text_area, "0-9", help_command_text_area.height, CGA_PALETTE[0])
+  render_text_in_middle(help_hint_text_area, "Get input box to enter your reps", help_hint_text_area.height, CGA_PALETTE[0])
+
+
+
 }
 
