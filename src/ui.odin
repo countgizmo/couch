@@ -4,6 +4,7 @@ import rl "vendor:raylib"
 
 MENU_COLOR: rl.Color: { 170, 170, 170, 255}
 MAIN_MENU_HEIGHT :: 30
+FONT_SIZE :: 16
 
 CGA_PALETTE := [16]rl.Color{
     { 0,   0,   0,   255 }, // 0  black
@@ -53,7 +54,6 @@ render_main_menu :: proc(container: Rect, state: ^State) {
 
 render_status_bar :: proc(container: Rect, state: ^State) {
   rl.DrawRectangleRec(container, CGA_PALETTE[7])
-
   help_command_area, rest := cut_left(container, 100)
   help_command_text_area := inset(help_command_area, 10, 6)
   help_hint_area, _ := cut_left(rest, 300)
@@ -61,10 +61,7 @@ render_status_bar :: proc(container: Rect, state: ^State) {
 
 
 
-  render_text_in_middle(help_command_text_area, "0-9", help_command_text_area.height, CGA_PALETTE[0])
-  render_text_in_middle(help_hint_text_area, "Get input box to enter your reps", help_hint_text_area.height, CGA_PALETTE[0])
-
-
-
+  render_text_in_middle(help_command_text_area, "0-9", FONT_SIZE, CGA_PALETTE[0])
+  render_text_in_middle(help_hint_text_area, "Get input box to enter your reps", FONT_SIZE, CGA_PALETTE[0])
 }
 

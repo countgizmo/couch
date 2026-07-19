@@ -462,37 +462,21 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_live_session :: proc(container: Rect, state: ^State) {
-  info_section_height     := container.height * 10 / 100
-  tracking_section_height := container.height * 60 / 100
-  progress_section_height := container.height - info_section_height - tracking_section_height - CONTAINER_PADDING
+  info_section_slice, rest1 := cut_top(container, container.height * 10 / 100)
+  info_section_area := inset(info_section_slice, CONTAINER_PADDING, CONTAINER_PADDING)
 
-  info_section := rl.Rectangle {
-    x = container.x + CONTAINER_PADDING,
-    y = container.y + CONTAINER_PADDING,
-    width =  container.width - (2*CONTAINER_PADDING),
-    height = info_section_height - CONTAINER_PADDING,
-  }
+  tracking_section_slice, rest2 := cut_top(rest1, container.height * 60 / 100)
+  tracking_section_area := inset(tracking_section_slice, CONTAINER_PADDING, CONTAINER_PADDING)
 
-  tracking_section := rl.Rectangle {
-    x = CONTAINER_PADDING,
-    y = CONTAINER_PADDING + info_section.y + info_section.height,
-    width =  container.width - (2*CONTAINER_PADDING),
-    height = tracking_section_height - CONTAINER_PADDING,
-  }
+  progress_section_slice, _ := cut_bottom(rest2, container.height - info_section_slice.height - tracking_section_slice.height)
+  progress_section_area  := inset(progress_section_slice, CONTAINER_PADDING, CONTAINER_PADDING)
 
-  progress_section := rl.Rectangle {
-    x = CONTAINER_PADDING,
-    y = CONTAINER_PADDING + tracking_section.y + tracking_section.height,
-    width =  container.width - (2*CONTAINER_PADDING),
-    height = progress_section_height - CONTAINER_PADDING,
-  }
-
-  render_total(info_section, state)
-  render_heart_rate(info_section, state)
-  render_axis(tracking_section, CGA_PALETTE[14])
-  render_session(tracking_section, state)
-  render_controls(tracking_section, state)
-  render_progress_bar(progress_section, state)
+  render_total(info_section_area, state)
+  render_heart_rate(info_section_area, state)
+  render_axis(tracking_section_area, CGA_PALETTE[14])
+  render_session(tracking_section_area, state)
+  render_controls(tracking_section_area, state)
+  render_progress_bar(progress_section_area, state)
 }
 
 render :: proc(state: ^State) {
