@@ -26,12 +26,22 @@ CGA_PALETTE := [16]rl.Color{
 
 Rect :: rl.Rectangle
 
-cut_top :: proc(r: Rect, h: f32) -> (strip: Rect, rest: Rect) {
+cut_top :: proc(r: Rect, h: f32) -> (strip, rest: Rect) {
   strip = { r.x, r.y, r.width, h }
   rest = { r.x, r.y + h, r.width, r.height - h }
+  return
+}
+
+cut_bottom :: proc(r: Rect, h: f32) -> (strip, rest:Rect) {
+  rest, strip = cut_top(r, r.height - h)
   return
 }
 
 render_main_menu :: proc(container: Rect, state: ^State) {
   rl.DrawRectangleRec(container, CGA_PALETTE[7])
 }
+
+render_status_bar :: proc(container: Rect, state: ^State) {
+  rl.DrawRectangleRec(container, CGA_PALETTE[7])
+}
+

@@ -461,35 +461,31 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
   }
 }
 
-render_live_session :: proc(state: ^State) {
-  window_height := cast(f32) rl.GetScreenHeight()
-  info_section_height     := window_height * 10 / 100
-  tracking_section_height := window_height * 60 / 100
-  progress_section_height := window_height - info_section_height - tracking_section_height - CONTAINER_PADDING
-
-  start_y: f32 = MAIN_MENU_HEIGHT + CONTAINER_PADDING
+render_live_session :: proc(container: Rect, state: ^State) {
+  info_section_height     := container.height * 10 / 100
+  tracking_section_height := container.height * 60 / 100
+  progress_section_height := container.height - info_section_height - tracking_section_height - CONTAINER_PADDING
 
   info_section := rl.Rectangle {
-    x = CONTAINER_PADDING,
-    y = start_y,
-    width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
+    x = container.x + CONTAINER_PADDING,
+    y = container.y + CONTAINER_PADDING,
+    width =  container.width - (2*CONTAINER_PADDING),
     height = info_section_height - CONTAINER_PADDING,
   }
 
   tracking_section := rl.Rectangle {
     x = CONTAINER_PADDING,
     y = CONTAINER_PADDING + info_section.y + info_section.height,
-    width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
+    width =  container.width - (2*CONTAINER_PADDING),
     height = tracking_section_height - CONTAINER_PADDING,
   }
 
   progress_section := rl.Rectangle {
     x = CONTAINER_PADDING,
     y = CONTAINER_PADDING + tracking_section.y + tracking_section.height,
-    width =  cast(f32) rl.GetScreenWidth() - (2*CONTAINER_PADDING),
+    width =  container.width - (2*CONTAINER_PADDING),
     height = progress_section_height - CONTAINER_PADDING,
   }
-
 
   render_total(info_section, state)
   render_heart_rate(info_section, state)
@@ -507,7 +503,8 @@ render :: proc(state: ^State) {
     return
   }
 
-  menubar, body := cut_top(screen, MAIN_MENU_HEIGHT)
+  menubar, body1 := cut_top(screen, MAIN_MENU_HEIGHT)
+  statusbar, body2 := cut_bottom(body1, MAIN_MENU_HEIGHT)
 
   render_main_menu(menubar, state)
 
@@ -516,8 +513,10 @@ render :: proc(state: ^State) {
     //render_axis(tracking_section, CGA_PALETTE[4])
     // render_analytics(state)
   } else {
-    render_live_session(state)
+    render_live_session(body2, state)
   }
+
+  render_status_bar(statusbar, state)
 }
 
 main :: proc() {
