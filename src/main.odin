@@ -52,8 +52,9 @@ State :: struct {
   // Animation
   hr_beat_animation: Animation,
 
-  // View
-  bars: [dynamic]BarView
+  // UI
+  bars: [dynamic]BarView,
+  font: rl.Font
 }
 
 Entry :: struct {
@@ -75,18 +76,13 @@ minutes_to_seconds :: proc(minutes: i32) -> f32 {
   return cast(f32) minutes * 60
 }
 
-render_text_in_middle :: proc (container: rl.Rectangle, text: string, font_size: f32, color: rl.Color) {
-    c_text := fmt.ctprint(text)
-    text_size:= rl.MeasureTextEx(rl.GetFontDefault(), c_text, font_size, 1)
-
-    container_middle_width := container.width / 2
-    container_middle_height := container.height / 2
-
-    text_position := rl.Vector2 {
-      container.x + container_middle_width - text_size.x/2,
-      container.y + container_middle_height - text_size.y/2}
-
-    rl.DrawTextEx(rl.GetFontDefault(), c_text, text_position, font_size, 2, color)
+render_text_in_middle :: proc (container: rl.Rectangle, state: ^State, text: string, scale: FontScale, color: rl.Color) {
+  size, spacing := font_metrics(state, scale)
+  c_text := fmt.ctprint(text)
+  text_size:= rl.MeasureTextEx(state.font, c_text, size, spacing)
+  container_center := center(container, text_size.x, text_size.y)
+  text_position := rl.Vector2 { container_center.x, container_center.y}
+  rl.DrawTextEx(state.font, c_text, text_position, size, spacing, color)
 }
 
 get_column_width :: proc(container: rl.Rectangle, chunks: i32, count: i32) -> f32 {
@@ -221,7 +217,7 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
       column.y - font_size,
     }
 
-    rl.DrawTextEx(rl.GetFontDefault(), reps_text, text_position, font_size, 1, color)
+    rl.DrawTextEx(state.font, reps_text, text_position, font_size, 1, color)
   }
 }
 
@@ -263,7 +259,7 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
   }
 
   font_size: f32 = 50
-  render_text_in_middle(total_container, text, font_size, CGA_PALETTE[14])
+  render_text_in_middle(total_container, state, text, FontScale.Big, CGA_PALETTE[14])
 }
 
 render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
@@ -276,7 +272,7 @@ render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
 
   font_size := animate_pulsing(state.hr_beat_animation)
   hr_text := fmt.tprintf("%d", heart_rate)
-  render_text_in_middle(hr_container, hr_text, font_size, CGA_PALETTE[14])
+  render_text_in_middle(hr_container, state, hr_text, FontScale.Big, CGA_PALETTE[14])
 }
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
@@ -321,7 +317,7 @@ render_controls :: proc(container: rl.Rectangle, state: ^State) {
     text := fmt.tprintf("%v", convert_to_number(state.keys_pressed))
     font_size: f32 = 50
 
-    render_text_in_middle(modal, text, font_size, CGA_PALETTE[14])
+    render_text_in_middle(modal, state, text, FontScale.Normal, CGA_PALETTE[14])
   }
 }
 
@@ -425,13 +421,9 @@ parse_args :: proc(state: ^State) {
   }
 }
 
-render_start_screen :: proc(container: rl.Rectangle) {
-  container_middle_width := container.width / 2
-  container_middle_height := container.height / 2
-
+render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
   welcome_text := "Press SPACE to start"
-  font_size: f32 = 20
-  render_text_in_middle(container, welcome_text, font_size, CGA_PALETTE[14])
+  render_text_in_middle(container, state, welcome_text, FontScale.Big, CGA_PALETTE[14])
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
@@ -457,7 +449,7 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
   rl.DrawRectangleRec(bar, CGA_PALETTE[14])
 
   if state.done {
-    render_text_in_middle(bar, "Done", 40, CGA_PALETTE[1])
+    render_text_in_middle(bar, state, "DONE", FontScale.Big, CGA_PALETTE[1])
   }
 }
 
@@ -483,7 +475,7 @@ render :: proc(state: ^State) {
   screen := Rect{0, 0, f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
 
   if !state.started {
-    render_start_screen(screen)
+    render_start_screen(screen, state)
     return
   }
 
@@ -508,6 +500,7 @@ main :: proc() {
 
   cb_central_manager := init_whoop_reading()
 
+
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
     .WINDOW_MAXIMIZED,
@@ -521,12 +514,25 @@ main :: proc() {
   rl.SetTargetFPS(30)
   rl.SetExitKey(.KEY_NULL);
 
+  // CP437 box-drawing / block chars live way outside ASCII,
+  // so you must pass codepoints explicitly — Raylib's default is 32..126.
+  codepoints: [dynamic]rune
+  for r in 32..=126        do append(&codepoints, rune(r))
+  for r in 0x2500..=0x257F do append(&codepoints, rune(r)) // box drawing
+  for r in 0x2580..=0x259F do append(&codepoints, rune(r)) // blocks ░▒▓█
+  // plus 0x2190..0x2195 arrows, 0x00B0, 0x263A..., as needed
+
+  font := rl.LoadFontFromMemory(".ttf", raw_data(FONT_DATA), i32(len(FONT_DATA)),
+    16, raw_data(codepoints[:]), i32(len(codepoints)))
+  rl.SetTextureFilter(font.texture, .POINT)
+
   state := State {
     exercises = 1,
     minutes = 20,
     analytics = false,
     started = false,
     paused = false,
+    font = font,
   }
 
   state.hr_beat_animation = Animation {

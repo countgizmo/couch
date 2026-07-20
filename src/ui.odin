@@ -1,5 +1,6 @@
 package main
 
+import "core:fmt"
 import rl "vendor:raylib"
 
 MENU_COLOR: rl.Color: { 170, 170, 170, 255}
@@ -44,8 +45,19 @@ cut_left :: proc(r: Rect, w: f32) -> (strip, rest: Rect) {
   return
 }
 
+cut_text :: proc(r: Rect, state: ^State, s: string, scale: FontScale, pad: f32) -> (slot, rect: Rect) {
+  c_text := fmt.ctprint(s)
+  size, spacing := font_metrics(state, scale)
+  w := rl.MeasureTextEx(state.font, c_text, size, spacing).x
+  return cut_left(r, w + (2 * pad))
+}
+
 inset :: proc(r: Rect, dx, dy: f32) -> Rect {
   return { r.x + dx, r.y + dy, r.width - (2*dx), r.height - (2*dy) }
+}
+
+center :: proc(r: Rect, w: f32, h: f32) -> Rect {
+  return { r.x + (r.width - w)/2, r.y + (r.height - h)/2, w, h }
 }
 
 render_main_menu :: proc(container: Rect, state: ^State) {
@@ -54,14 +66,21 @@ render_main_menu :: proc(container: Rect, state: ^State) {
 
 render_status_bar :: proc(container: Rect, state: ^State) {
   rl.DrawRectangleRec(container, CGA_PALETTE[7])
-  help_command_area, rest := cut_left(container, 100)
-  help_command_text_area := inset(help_command_area, 10, 6)
-  help_hint_area, _ := cut_left(rest, 300)
-  help_hint_text_area := inset(help_hint_area, 10, 6)
+  slot, bar : Rect
+
+  help_command_text := "0-9"
+  slot, bar = cut_text(container, state, help_command_text, FontScale.Normal, TEXT_PAD_X)
+  render_text_in_middle(slot, state, help_command_text, FontScale.Normal, CGA_PALETTE[0])
+
+  help_hint_text := "Get input box to enter your reps"
+  slot, bar = cut_text(bar, state, help_hint_text, FontScale.Normal, TEXT_PAD_X)
+  render_text_in_middle(slot, state, help_hint_text, FontScale.Normal, CGA_PALETTE[0])
 
 
-
-  render_text_in_middle(help_command_text_area, "0-9", FONT_SIZE, CGA_PALETTE[0])
-  render_text_in_middle(help_hint_text_area, "Get input box to enter your reps", FONT_SIZE, CGA_PALETTE[0])
+  // help_command_text_area := inset(help_command_area, 10, 6)
+  // help_hint_area, _ := cut_left(rest, 300)
+  // help_hint_text_area := inset(help_hint_area, 10, 6)
+  //
+  // render_text_in_middle(help_hint_text_area, state, "Get input box to enter your reps", FontScale.Normal, CGA_PALETTE[0])
 }
 
