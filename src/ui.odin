@@ -72,15 +72,12 @@ render_status_bar :: proc(container: Rect, state: ^State) {
   slot, bar = cut_text(container, state, help_command_text, FontScale.Normal, TEXT_PAD_X)
   render_text_in_middle(slot, state, help_command_text, FontScale.Normal, CGA_PALETTE[0])
 
+  vline := "|"
+  slot, bar = cut_text(bar, state, vline, FontScale.Normal, TEXT_PAD_X)
+  render_text_in_middle(slot, state, vline, FontScale.Normal, CGA_PALETTE[0])
+
   help_hint_text := "Get input box to enter your reps"
   slot, bar = cut_text(bar, state, help_hint_text, FontScale.Normal, TEXT_PAD_X)
   render_text_in_middle(slot, state, help_hint_text, FontScale.Normal, CGA_PALETTE[0])
-
-
-  // help_command_text_area := inset(help_command_area, 10, 6)
-  // help_hint_area, _ := cut_left(rest, 300)
-  // help_hint_text_area := inset(help_hint_area, 10, 6)
-  //
-  // render_text_in_middle(help_hint_text_area, state, "Get input box to enter your reps", FontScale.Normal, CGA_PALETTE[0])
 }
 

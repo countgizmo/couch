@@ -454,21 +454,25 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_live_session :: proc(container: Rect, state: ^State) {
-  info_section_slice, rest1 := cut_top(container, container.height * 10 / 100)
-  info_section_area := inset(info_section_slice, CONTAINER_PADDING, CONTAINER_PADDING)
+  slot, rest : Rect
+  slot, rest = cut_top(container, container.height * 10 / 100)
+  info_section_height := slot.height
 
-  tracking_section_slice, rest2 := cut_top(rest1, container.height * 60 / 100)
-  tracking_section_area := inset(tracking_section_slice, CONTAINER_PADDING, CONTAINER_PADDING)
+  slot = inset(slot, CONTAINER_PADDING, CONTAINER_PADDING)
+  render_total(slot, state)
+  render_heart_rate(slot, state)
 
-  progress_section_slice, _ := cut_bottom(rest2, container.height - info_section_slice.height - tracking_section_slice.height)
-  progress_section_area  := inset(progress_section_slice, CONTAINER_PADDING, CONTAINER_PADDING)
 
-  render_total(info_section_area, state)
-  render_heart_rate(info_section_area, state)
-  render_axis(tracking_section_area, CGA_PALETTE[14])
-  render_session(tracking_section_area, state)
-  render_controls(tracking_section_area, state)
-  render_progress_bar(progress_section_area, state)
+  slot, rest = cut_top(rest, container.height * 60 / 100)
+  tracking_section_height := slot.height
+
+  slot = inset(slot, CONTAINER_PADDING, CONTAINER_PADDING)
+  render_axis(slot, CGA_PALETTE[14])
+  render_session(slot, state)
+
+  slot, rest = cut_bottom(rest, container.height - info_section_height - tracking_section_height)
+  slot = inset(slot, CONTAINER_PADDING, CONTAINER_PADDING)
+  render_progress_bar(slot, state)
 }
 
 render :: proc(state: ^State) {
@@ -490,6 +494,8 @@ render :: proc(state: ^State) {
     // render_analytics(state)
   } else {
     render_live_session(body2, state)
+    render_controls(screen, state)
+
   }
 
   render_status_bar(statusbar, state)
