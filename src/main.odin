@@ -563,6 +563,7 @@ main :: proc() {
     update(&state)
     render(&state)
     rl.EndDrawing()
+    free_all(context.temp_allocator)
   }
 
   whoop->release()
