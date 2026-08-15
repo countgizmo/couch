@@ -39,8 +39,8 @@ State :: struct {
   done: bool,
 
   // Setup
-  exercises: i32,
-  minutes: i32,
+  exercises: u32,
+  minutes: u32,
 
 
   // Controls
@@ -57,7 +57,8 @@ State :: struct {
   hot: WidgetID,
 
   // Data
-  sessions: [dynamic]Session
+  sessions: [dynamic]Session,
+  selected_session_index: int
 }
 
 Exercise :: struct {
@@ -84,11 +85,11 @@ SCREEN_HEIGHT :: 800
 CONTAINER_PADDING :: 40
 COLUMN_PADDING: f32 = 10
 
-minutes_to_seconds :: proc(minutes: i32) -> f32 {
+minutes_to_seconds :: proc(minutes: u32) -> f32 {
   return cast(f32) minutes * 60
 }
 
-get_column_width :: proc(container: rl.Rectangle, chunks: i32, count: i32) -> f32 {
+get_column_width :: proc(container: rl.Rectangle, chunks: u32, count: uint) -> f32 {
   chunks_based := container.width / cast(f32)chunks
 
   total_width_needed := (chunks_based + COLUMN_PADDING) * cast(f32)count + 50
@@ -279,7 +280,7 @@ render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
-  column_width := get_column_width(container, state.minutes, cast(i32)len(state.session))
+  column_width := get_column_width(container, state.minutes, len(state.session))
   max_reps: i32 = 0
 
   for &entry, idx in state.session {
@@ -401,29 +402,6 @@ update :: proc(state: ^State) {
   }
 }
 
-parse_args :: proc(state: ^State) {
-  if len(os.args) == 1 {
-    return
-  }
-
-  i := 1 // skipping the name of the command itself
-  for i < len(os.args) {
-    if os.args[i] == "-e" {
-      i += 1
-      exercises, _ := strconv.parse_int(os.args[i])
-      state.exercises = cast(i32) exercises
-    }
-
-    if os.args[i] == "-m" {
-      i += 1
-      minutes, _ := strconv.parse_int(os.args[i])
-      state.minutes = cast(i32) minutes
-    }
-
-    i +=1
-  }
-}
-
 render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
   slot, rest : Rect
   slot = inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
@@ -538,12 +516,11 @@ main :: proc() {
   rl.SetTextureFilter(font.texture, .POINT)
 
   state := State {
-    exercises = 1,
-    minutes = 20,
     analytics = false,
     started = false,
     paused = false,
     font = font,
+    selected_session_index = -1
   }
 
   // Hardcoded data for testing stuff
@@ -562,8 +539,6 @@ main :: proc() {
     to = 70,
     running = true,
   }
-
-  parse_args(&state)
 
   whoop_connected := false
 

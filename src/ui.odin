@@ -145,7 +145,9 @@ render_sessions_list :: proc(container: Rect, state: ^State) {
       state.hot = row_id
     }
 
+    // Checking for all the interactions
     row_hovered := state.hot.name == row_id.name && state.hot.index == idx
+    row_clicked := row_hovered && rl.IsMouseButtonDown(rl.MouseButton.LEFT)
 
     if row_hovered {
       fill_solid(row, CGA_PALETTE[14])
@@ -154,6 +156,15 @@ render_sessions_list :: proc(container: Rect, state: ^State) {
       row_text_color = CGA_PALETTE[14]
     }
 
+    if row_clicked {
+      state.exercises = u32(len(session.exercises))
+      state.minutes = session.duration_minutes
+      state.selected_session_index = idx
+    }
+
+    if idx == state.selected_session_index {
+      fill_solid(row, CGA_PALETTE[2])
+    }
 
     // First Cell
     slot, row_rest := cut_ratio_left(row, 0.7)
