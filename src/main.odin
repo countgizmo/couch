@@ -38,7 +38,6 @@ State :: struct {
   paused: bool,
   done: bool,
 
-
   // Setup
   exercises: i32,
   minutes: i32,
@@ -54,7 +53,20 @@ State :: struct {
 
   // UI
   bars: [dynamic]BarView,
-  font: rl.Font
+  font: rl.Font,
+  hot: WidgetID,
+
+  // Data
+  sessions: [dynamic]Session
+}
+
+Exercise :: struct {
+  title: string,
+}
+
+Session :: struct {
+  exercises: [dynamic]Exercise,
+  duration_minutes: u32,
 }
 
 Entry :: struct {
@@ -74,15 +86,6 @@ COLUMN_PADDING: f32 = 10
 
 minutes_to_seconds :: proc(minutes: i32) -> f32 {
   return cast(f32) minutes * 60
-}
-
-render_text_in_middle :: proc (container: rl.Rectangle, state: ^State, text: string, scale: FontScale, color: rl.Color) {
-  size, spacing := font_metrics(state, scale)
-  c_text := fmt.ctprint(text)
-  text_size:= rl.MeasureTextEx(state.font, c_text, size, spacing)
-  container_center := center(container, text_size.x, text_size.y)
-  text_position := rl.Vector2 { container_center.x, container_center.y}
-  rl.DrawTextEx(state.font, c_text, text_position, size, spacing, color)
 }
 
 get_column_width :: proc(container: rl.Rectangle, chunks: i32, count: i32) -> f32 {
@@ -422,8 +425,9 @@ parse_args :: proc(state: ^State) {
 }
 
 render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
-  welcome_text := "Press SPACE to start"
-  render_text_in_middle(container, state, welcome_text, FontScale.Big, CGA_PALETTE[14])
+  slot, rest : Rect
+  slot = inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
+  render_sessions_list(slot, state)
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
@@ -483,8 +487,9 @@ render :: proc(state: ^State) {
     return
   }
 
-  menubar, body1 := cut_top(screen, MAIN_MENU_HEIGHT)
-  statusbar, body2 := cut_bottom(body1, MAIN_MENU_HEIGHT)
+  rest, menubar, statusbar : Rect
+  menubar, rest = cut_top(screen, MAIN_MENU_HEIGHT)
+  statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
 
   render_main_menu(menubar, state)
 
@@ -493,7 +498,7 @@ render :: proc(state: ^State) {
     //render_axis(tracking_section, CGA_PALETTE[4])
     // render_analytics(state)
   } else {
-    render_live_session(body2, state)
+    render_live_session(rest, state)
     render_controls(screen, state)
 
   }
@@ -541,6 +546,16 @@ main :: proc() {
     font = font,
   }
 
+  // Hardcoded data for testing stuff
+  session1 := Session { duration_minutes = 20 }
+  append(&session1.exercises, Exercise { title = "KB Snatch" });
+  session2 := Session { duration_minutes = 30}
+  append(&session2.exercises, Exercise { title = "KB Clean" });
+  append(&session2.exercises, Exercise { title = "KB Front Squat" });
+
+  append(&state.sessions, session1)
+  append(&state.sessions, session2)
+
   state.hr_beat_animation = Animation {
     duration = 10,
     from = 50,
@@ -564,6 +579,7 @@ main :: proc() {
     render(&state)
     rl.EndDrawing()
     free_all(context.temp_allocator)
+    state.hot = {}
   }
 
   whoop->release()
