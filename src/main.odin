@@ -406,9 +406,21 @@ update :: proc(state: ^State) {
 }
 
 render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
-  slot, rest : Rect
-  slot = inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
-  render_sessions_list(slot, state)
+  slot, rest, menubar, statusbar : Rect
+  menubar, rest = cut_top(container, MAIN_MENU_HEIGHT)
+  statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
+
+  slot = inset(rest, CONTAINER_PADDING, CONTAINER_PADDING)
+  slot, rest = cut_ratio_bottom(slot, 0.3)
+
+  if state.selected_session_index > -1 {
+    hint_text := "Press SPACE to start"
+    render_text_in_middle(slot, state, hint_text, FontScale.Normal, CGA_PALETTE[14])
+  }
+
+  render_main_menu(menubar, state)
+  render_sessions_list(rest, state)
+  render_status_bar(statusbar, state)
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {

@@ -63,6 +63,11 @@ cut_ratio_left :: proc(r: Rect, width_ratio: f32) -> (strip, rest: Rect) {
   return cut_left(r, w)
 }
 
+cut_ratio_bottom :: proc(r: Rect, height_ratio: f32) -> (strip, rest: Rect) {
+  h := r.height * height_ratio
+  return cut_bottom(r, h)
+}
+
 cut_text_left :: proc(r: Rect, state: ^State, s: string, scale: FontScale, pad: f32) -> (slot, rect: Rect) {
   c_text := fmt.ctprint(s)
   size, spacing := font_metrics(state, scale)
