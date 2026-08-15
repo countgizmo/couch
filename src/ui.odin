@@ -157,8 +157,6 @@ render_sessions_list :: proc(container: Rect, state: ^State) {
     }
 
     if row_clicked {
-      state.exercises = u32(len(session.exercises))
-      state.minutes = session.duration_minutes
       state.selected_session_index = idx
     }
 

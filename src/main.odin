@@ -38,11 +38,6 @@ State :: struct {
   paused: bool,
   done: bool,
 
-  // Setup
-  exercises: u32,
-  minutes: u32,
-
-
   // Controls
   keys_pressed: [dynamic]u8,
   inputting: bool,
@@ -228,7 +223,9 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
 render_total :: proc(container: rl.Rectangle, state: ^State) {
   text: string
 
-  if state.exercises == 2 {
+  session := state.sessions[state.selected_session_index]
+
+  if len(session.exercises) == 2 {
     even := false
     total1:i32
     total2:i32
@@ -244,7 +241,7 @@ render_total :: proc(container: rl.Rectangle, state: ^State) {
     }
 
     text = fmt.tprintf("TOTAL: %v | %v", total1, total2)
-  } else if state.exercises == 1 {
+  } else if len(session.exercises) == 1 {
     total: i32
     for e in state.session {
       total += e.reps
@@ -280,7 +277,8 @@ render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
-  column_width := get_column_width(container, state.minutes, len(state.session))
+  session := state.sessions[state.selected_session_index]
+  column_width := get_column_width(container, session.duration_minutes, len(state.session))
   max_reps: i32 = 0
 
   for &entry, idx in state.session {
@@ -343,11 +341,16 @@ update :: proc(state: ^State) {
     state.seconds_from_start += rl.GetFrameTime()
   }
 
-  // Are we done yet?
-  total_seconds := minutes_to_seconds(state.minutes)
-  if state.seconds_from_start >= total_seconds {
-    state.done = true
-    state.paused = true
+
+  if state.selected_session_index > -1 {
+    session := state.sessions[state.selected_session_index]
+
+    // Are we done yet?
+    total_seconds := minutes_to_seconds(session.duration_minutes)
+    if state.seconds_from_start >= total_seconds {
+      state.done = true
+      state.paused = true
+    }
   }
 
 
@@ -409,7 +412,8 @@ render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
-  total_seconds := minutes_to_seconds(state.minutes)
+  session := state.sessions[state.selected_session_index]
+  total_seconds := minutes_to_seconds(session.duration_minutes)
   percentage_in_pixels := container.width / total_seconds
 
   bar_width: f32
