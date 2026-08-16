@@ -101,6 +101,8 @@ fill_solid :: proc(container: Rect, color: rl.Color) {
   rl.DrawRectangleRec(container, color)
 }
 
+
+
 render_main_menu :: proc(container: Rect, state: ^State) {
   fill_solid(container, CGA_PALETTE[7])
   render_text(container, state, "Couch", FontScale.Normal, CGA_PALETTE[0])
@@ -127,7 +129,7 @@ render_status_bar :: proc(container: Rect, state: ^State) {
   }
 
   slot, bar = cut_text_left(container, state, help_command_text, FontScale.Normal, TEXT_PAD_X)
-  render_text_in_middle(slot, state, help_command_text, FontScale.Normal, CGA_PALETTE[0])
+  render_text_in_middle(slot, state, help_command_text, FontScale.Normal, CGA_PALETTE[4])
 
   slot, bar = cut_text_left(bar, state, vline, FontScale.Normal, TEXT_PAD_X)
   render_text_in_middle(slot, state, vline, FontScale.Normal, CGA_PALETTE[0])
