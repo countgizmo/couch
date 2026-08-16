@@ -30,6 +30,11 @@ animate_linear :: proc(animation: Animation) -> f32 {
   return next_value
 }
 
+Screen :: enum {
+  Start,
+  Tracking,
+}
+
 State :: struct {
   start: time.Time,
   seconds_from_start: f32,
@@ -47,6 +52,7 @@ State :: struct {
   hr_beat_animation: Animation,
 
   // UI
+  current_screen: Screen,
   bars: [dynamic]BarView,
   font: rl.Font,
   hot: WidgetID,
@@ -382,9 +388,10 @@ update :: proc(state: ^State) {
     })
     clear(&state.keys_pressed)
   case .SPACE:
-    if !state.started {
+    if !state.started && state.selected_session_index > -1 {
       state.start = time.now()
       state.started = true
+      state.current_screen = .Tracking
     } else {
       state.paused = !state.paused
     }
@@ -473,16 +480,9 @@ render_live_session :: proc(container: Rect, state: ^State) {
   render_progress_bar(slot, state)
 }
 
-render :: proc(state: ^State) {
-  screen := Rect{0, 0, f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
-
-  if !state.started {
-    render_start_screen(screen, state)
-    return
-  }
-
+render_tracking_screen :: proc(container: Rect, state: ^State) {
   rest, menubar, statusbar : Rect
-  menubar, rest = cut_top(screen, MAIN_MENU_HEIGHT)
+  menubar, rest = cut_top(container, MAIN_MENU_HEIGHT)
   statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
 
   render_main_menu(menubar, state)
@@ -493,11 +493,21 @@ render :: proc(state: ^State) {
     // render_analytics(state)
   } else {
     render_live_session(rest, state)
-    render_controls(screen, state)
-
+    render_controls(container, state)
   }
 
   render_status_bar(statusbar, state)
+}
+
+render :: proc(state: ^State) {
+  screen := Rect{0, 0, f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
+
+  switch state.current_screen {
+  case .Start:
+    render_start_screen(screen, state)
+  case .Tracking:
+    render_tracking_screen(screen, state)
+  }
 }
 
 main :: proc() {
@@ -532,6 +542,7 @@ main :: proc() {
   rl.SetTextureFilter(font.texture, .POINT)
 
   state := State {
+    current_screen = .Start,
     analytics = false,
     started = false,
     paused = false,

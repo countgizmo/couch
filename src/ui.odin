@@ -103,21 +103,35 @@ fill_solid :: proc(container: Rect, color: rl.Color) {
 
 render_main_menu :: proc(container: Rect, state: ^State) {
   fill_solid(container, CGA_PALETTE[7])
+  render_text(container, state, "Couch", FontScale.Normal, CGA_PALETTE[0])
 }
 
 render_status_bar :: proc(container: Rect, state: ^State) {
   fill_solid(container, CGA_PALETTE[7])
   slot, bar : Rect
 
-  help_command_text := "0-9"
+  vline := "|"
+
+  help_command_text : string
+  help_hint_text : string
+
+  switch state.current_screen {
+    case .Start: {
+      help_command_text = "SPACE"
+      help_hint_text = "Start your session"
+    }
+    case .Tracking: {
+      help_command_text = "0-9"
+      help_hint_text = "Get input box to enter your reps"
+    }
+  }
+
   slot, bar = cut_text_left(container, state, help_command_text, FontScale.Normal, TEXT_PAD_X)
   render_text_in_middle(slot, state, help_command_text, FontScale.Normal, CGA_PALETTE[0])
 
-  vline := "|"
   slot, bar = cut_text_left(bar, state, vline, FontScale.Normal, TEXT_PAD_X)
   render_text_in_middle(slot, state, vline, FontScale.Normal, CGA_PALETTE[0])
 
-  help_hint_text := "Get input box to enter your reps"
   slot, bar = cut_text_left(bar, state, help_hint_text, FontScale.Normal, TEXT_PAD_X)
   render_text_in_middle(slot, state, help_hint_text, FontScale.Normal, CGA_PALETTE[0])
 }
@@ -194,3 +208,5 @@ render_sessions_list :: proc(container: Rect, state: ^State) {
     body_rest.x = container.x
   }
 }
+
+
