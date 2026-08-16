@@ -112,8 +112,6 @@ render_status_bar :: proc(container: Rect, state: ^State) {
   fill_solid(container, CGA_PALETTE[7])
   slot, bar : Rect
 
-  vline := "|"
-
   help_command_text : string
   help_hint_text : string
 
@@ -131,8 +129,9 @@ render_status_bar :: proc(container: Rect, state: ^State) {
   slot, bar = cut_text_left(container, state, help_command_text, FontScale.Normal, TEXT_PAD_X)
   render_text_in_middle(slot, state, help_command_text, FontScale.Normal, CGA_PALETTE[4])
 
-  slot, bar = cut_text_left(bar, state, vline, FontScale.Normal, TEXT_PAD_X)
-  render_text_in_middle(slot, state, vline, FontScale.Normal, CGA_PALETTE[0])
+  slot, bar = cut_left(bar, 10)
+  slot = center(slot, 3, slot.height)
+  rl.DrawLineEx({slot.x+slot.width, slot.y}, {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[0])
 
   slot, bar = cut_text_left(bar, state, help_hint_text, FontScale.Normal, TEXT_PAD_X)
   render_text_in_middle(slot, state, help_hint_text, FontScale.Normal, CGA_PALETTE[0])
