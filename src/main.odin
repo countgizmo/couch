@@ -195,8 +195,9 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
 
   color := CGA_PALETTE[14]
 
+  //TODO(evgheni): build based on the number of exercises
   if idx % 2 == 0 {
-    color = CGA_PALETTE[6]
+    color = rl.Fade(CGA_PALETTE[14], 0.7)
   }
 
   max_percentage := animate_linear(bar_view.animation)
