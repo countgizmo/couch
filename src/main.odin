@@ -278,6 +278,7 @@ render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
     height = container.height,
   }
 
+  //TODO(evgheni): we need a way to pass font_size to text rendering function
   font_size := animate_pulsing(state.hr_beat_animation)
   hr_text := fmt.tprintf("%d", heart_rate)
   render_text_in_middle(hr_container, state, hr_text, FontScale.Big, CGA_PALETTE[14])
@@ -474,6 +475,7 @@ render_live_session :: proc(container: Rect, state: ^State) {
 
   slot = inset(slot, CONTAINER_PADDING, CONTAINER_PADDING)
   render_axis(slot, CGA_PALETTE[14])
+  slot = inset(slot, 5, 5)
   render_session(slot, state)
 
   slot, rest = cut_bottom(rest, container.height - info_section_height - tracking_section_height)
