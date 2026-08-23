@@ -59,7 +59,8 @@ State :: struct {
 
   // Data
   sessions: [dynamic]Session,
-  selected_session_index: int
+  selected_session_index: int,
+  selected_live_session_entry: int
 }
 
 Exercise :: struct {
@@ -189,6 +190,7 @@ render_axis :: proc(container: rl.Rectangle, color: rl.Color) {
 }
 
 render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f32, max_reps: i32) {
+  mouse := rl.GetMousePosition()
   bar_view := state.bars[idx]
   entry := state.session[bar_view.entry_index]
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
@@ -211,6 +213,15 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
     y = container.y + container.height - column_height,
     width = width,
     height = column_height,
+  }
+
+  column_clicked := rl.CheckCollisionPointRec(mouse, column) && rl.IsMouseButtonDown(rl.MouseButton.LEFT)
+  if column_clicked {
+    state.selected_live_session_entry = idx
+  }
+
+  if state.selected_live_session_entry == idx {
+    color = CGA_PALETTE[3]
   }
 
   rl.DrawRectangleRec(column, color)
@@ -327,7 +338,7 @@ render_controls :: proc(container: rl.Rectangle, state: ^State) {
     text := fmt.tprintf("%v", convert_to_number(state.keys_pressed))
     font_size: f32 = 50
 
-    render_text_in_middle(modal, state, text, FontScale.Normal, CGA_PALETTE[14])
+    render_text_in_middle(modal, state, text, FontScale.Big, CGA_PALETTE[14])
   }
 }
 
@@ -342,6 +353,30 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
     return result
 }
 
+handle_enter :: proc(state: ^State) {
+  state.inputting = false
+  reps_num := convert_to_number(state.keys_pressed)
+
+  if state.selected_live_session_entry > -1 {
+    state.session[state.selected_live_session_entry].reps = reps_num
+    state.bars[state.selected_live_session_entry].animation.running = true
+    state.bars[state.selected_live_session_entry].animation.elapsed = 0
+    state.selected_live_session_entry = -1
+  } else {
+    append(&state.session, Entry{reps = reps_num, t = time.now()})
+    append(&state.bars, BarView{
+      entry_index = len(state.session) - 1,
+      animation = Animation {
+        duration = 0.4,
+        from = 0,
+        to = 100,
+        running = true,
+      },
+    })
+  }
+  clear(&state.keys_pressed)
+}
+
 update :: proc(state: ^State) {
 
   // Time
@@ -349,6 +384,9 @@ update :: proc(state: ^State) {
     state.seconds_from_start += rl.GetFrameTime()
   }
 
+  if state.selected_live_session_entry > -1 {
+    state.inputting = true
+  }
 
   if state.selected_session_index > -1 {
     session := state.sessions[state.selected_session_index]
@@ -376,19 +414,7 @@ update :: proc(state: ^State) {
       pop(&state.keys_pressed)
     }
   case .ENTER:
-    state.inputting = false
-    reps_num := convert_to_number(state.keys_pressed)
-    append(&state.session, Entry{reps = reps_num, t = time.now()})
-    append(&state.bars, BarView{
-      entry_index = len(state.session) - 1,
-      animation = Animation {
-        duration = 0.4,
-        from = 0,
-        to = 100,
-        running = true,
-      },
-    })
-    clear(&state.keys_pressed)
+    handle_enter(state)
   case .SPACE:
     if !state.started && state.selected_session_index > -1 {
       state.start = time.now()
@@ -550,7 +576,8 @@ main :: proc() {
     started = false,
     paused = false,
     font = font,
-    selected_session_index = -1
+    selected_session_index = -1,
+    selected_live_session_entry = -1,
   }
 
   // Hardcoded data for testing stuff
