@@ -2,6 +2,7 @@ package main
 
 import "core:fmt"
 import "core:strings"
+import "core:log"
 import rl "vendor:raylib"
 
 MENU_COLOR: rl.Color: { 170, 170, 170, 255}
@@ -101,7 +102,7 @@ fill_solid :: proc(container: Rect, color: rl.Color) {
   rl.DrawRectangleRec(container, color)
 }
 
-menu_item :: proc(container: Rect, state: ^State, label: string) {
+menu_item :: proc(container: Rect, state: ^State, label: string) -> bool {
   mouse := rl.GetMousePosition()
   item_id := WidgetID { name = label }
   slot, bar := cut_text_left(container, state, label, FontScale.Normal, TEXT_PAD_X*2)
@@ -111,11 +112,15 @@ menu_item :: proc(container: Rect, state: ^State, label: string) {
   }
 
   item_hovered := state.hot.name == label
+  item_clicked := item_hovered && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
+
   if item_hovered {
     fill_solid(slot, CGA_PALETTE[2])
   }
 
   render_text_in_middle(slot, state, "Help", FontScale.Normal, CGA_PALETTE[0])
+
+  return item_clicked
 }
 
 render_main_menu :: proc(container: Rect, state: ^State) {
@@ -126,8 +131,9 @@ render_main_menu :: proc(container: Rect, state: ^State) {
   slot, bar = cut_text_left(container, state, "Couch", FontScale.Normal, TEXT_PAD_X*2)
   render_text(slot, state, "Couch", FontScale.Normal, text_color)
 
-  menu_item(bar, state, "Help")
-
+  if menu_item(bar, state, "Help") {
+    log.debug("Help clicked")
+  }
 }
 
 render_status_bar :: proc(container: Rect, state: ^State) {
