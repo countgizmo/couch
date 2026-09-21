@@ -133,6 +133,17 @@ render_main_menu :: proc(container: Rect, state: ^State) {
 
   if menu_item(bar, state, "Help") {
     log.debug("Help clicked")
+    state.current_screen = .Palette
+  }
+}
+
+render_palette :: proc(container: Rect, state: ^State) {
+  for i in 0..<len(CGA_PALETTE) {
+    row := i%4
+    col := i/4
+    rect := Rect { f32(row*60)+100, f32(col*60)+100, 50, 50 }
+    rl.DrawRectangleRec(rect, CGA_PALETTE[i])
+    rl.DrawRectangleLinesEx(rect, 5, CGA_PALETTE[0])
   }
 }
 
@@ -143,7 +154,7 @@ render_status_bar :: proc(container: Rect, state: ^State) {
   help_command_text : string
   help_hint_text : string
 
-  switch state.current_screen {
+  #partial switch state.current_screen {
     case .Start: {
       help_command_text = "SPACE"
       help_hint_text = "Start your session"

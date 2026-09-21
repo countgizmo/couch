@@ -33,6 +33,7 @@ animate_linear :: proc(animation: Animation) -> f32 {
 Screen :: enum {
   Start,
   Tracking,
+  Palette,
 }
 
 State :: struct {
@@ -536,6 +537,8 @@ render :: proc(state: ^State) {
     render_start_screen(screen, state)
   case .Tracking:
     render_tracking_screen(screen, state)
+  case .Palette:
+    render_palette(screen, state)
   }
 }
 
@@ -547,8 +550,8 @@ main :: proc() {
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
-    .WINDOW_MAXIMIZED,
-    .WINDOW_RESIZABLE,
+    // .WINDOW_MAXIMIZED,
+    // .WINDOW_RESIZABLE,
   })
 
   rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Couch")
