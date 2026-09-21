@@ -2,6 +2,7 @@ package probesqlite
 
 import "core:c"
 import "core:fmt"
+import "core:strings"
 foreign import sqlite "system:sqlite3"
 
 DB :: struct {}
@@ -34,7 +35,7 @@ foreign sqlite {
 
 create_some_tables :: proc(db: ^DB) -> bool {
   create_table_stmt: ^Stmt
-  create_table_sql: cstring = "CREATE TABLE IF NOT EXISTS exercise (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
+  create_table_sql: cstring = "CREATE TABLE IF NOT EXISTS exercise (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)"
   result := sqlite3_prepare_v2(db, create_table_sql, -1, &create_table_stmt, nil)
   defer sqlite3_finalize(create_table_stmt)
 
@@ -54,9 +55,19 @@ create_some_tables :: proc(db: ^DB) -> bool {
   return true
 }
 
-populate_db_with_bullshit :: proc(db: ^DB) -> bool {
+exercise_names := []string {
+  "KB Snatch",
+  "KB Clean",
+  "KB Front Squat",
+  "KB Press",
+}
+
+insert_exercise :: proc(db: ^DB, name: string) -> bool {
+  c_name := strings.clone_to_cstring(name)
+  defer delete(c_name)
   insert_ex_stmt: ^Stmt
-  insert_ex_sql: cstring = "INSERT INTO exercise (name) VALUES (?)"
+
+  insert_ex_sql: cstring = "INSERT OR IGNORE INTO exercise (name) VALUES (?)"
   result := sqlite3_prepare_v2(db, insert_ex_sql, -1, &insert_ex_stmt, nil)
   defer sqlite3_finalize(insert_ex_stmt)
 
@@ -65,7 +76,7 @@ populate_db_with_bullshit :: proc(db: ^DB) -> bool {
     return false
   }
 
-  result = sqlite3_bind_text(insert_ex_stmt, 1, "KB Snatch", -1, ~uintptr(0))
+  result = sqlite3_bind_text(insert_ex_stmt, 1, c_name, -1, ~uintptr(0))
 
   if result != .ok {
     fmt.println("Error: failed to bind text", result)
@@ -79,8 +90,13 @@ populate_db_with_bullshit :: proc(db: ^DB) -> bool {
     return false
   }
 
-  fmt.println("Insert exercise result =", result)
   return true
+}
+
+populate_db_with_bullshit :: proc(db: ^DB) {
+  for name in exercise_names {
+    insert_exercise(db, name)
+  }
 }
 
 read_some_bullshit :: proc(db: ^DB) -> bool {
@@ -134,6 +150,6 @@ main :: proc() {
   }
 
   create_some_tables(db)
-  // populate_db_with_bullshit(db)
+  populate_db_with_bullshit(db)
   read_some_bullshit(db)
 }
