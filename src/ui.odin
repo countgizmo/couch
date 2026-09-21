@@ -101,11 +101,33 @@ fill_solid :: proc(container: Rect, color: rl.Color) {
   rl.DrawRectangleRec(container, color)
 }
 
+menu_item :: proc(container: Rect, state: ^State, label: string) {
+  mouse := rl.GetMousePosition()
+  item_id := WidgetID { name = label }
+  slot, bar := cut_text_left(container, state, label, FontScale.Normal, TEXT_PAD_X*2)
 
+  if rl.CheckCollisionPointRec(mouse, slot) {
+    state.hot = item_id
+  }
+
+  item_hovered := state.hot.name == label
+  if item_hovered {
+    fill_solid(slot, CGA_PALETTE[2])
+  }
+
+  render_text_in_middle(slot, state, "Help", FontScale.Normal, CGA_PALETTE[0])
+}
 
 render_main_menu :: proc(container: Rect, state: ^State) {
   fill_solid(container, CGA_PALETTE[7])
-  render_text(container, state, "Couch", FontScale.Normal, CGA_PALETTE[0])
+  text_color := CGA_PALETTE[0]
+  slot, bar : Rect
+
+  slot, bar = cut_text_left(container, state, "Couch", FontScale.Normal, TEXT_PAD_X*2)
+  render_text(slot, state, "Couch", FontScale.Normal, text_color)
+
+  menu_item(bar, state, "Help")
+
 }
 
 render_status_bar :: proc(container: Rect, state: ^State) {
