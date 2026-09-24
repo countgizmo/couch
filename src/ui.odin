@@ -102,7 +102,7 @@ fill_solid :: proc(container: Rect, color: rl.Color) {
   rl.DrawRectangleRec(container, color)
 }
 
-menu_item :: proc(container: Rect, state: ^State, label: string) -> bool {
+menu_item :: proc(container: Rect, state: ^State, label: string) -> (bool, Rect) {
   mouse := rl.GetMousePosition()
   item_id := WidgetID { name = label }
   slot, bar := cut_text_left(container, state, label, FontScale.Normal, TEXT_PAD_X*2)
@@ -118,9 +118,20 @@ menu_item :: proc(container: Rect, state: ^State, label: string) -> bool {
     fill_solid(slot, CGA_PALETTE[2])
   }
 
-  render_text_in_middle(slot, state, "Help", FontScale.Normal, CGA_PALETTE[0])
+  render_text_in_middle(slot, state, label, FontScale.Normal, CGA_PALETTE[0])
 
-  return item_clicked
+  return item_clicked, bar
+}
+
+Menu :: struct {
+  label: string,
+  screen: Screen,
+  items: []Menu
+}
+
+main_menu :: [2]Menu  {
+  {label = "Database", items = { Menu{ label = "Excercises" }}},
+  {label = "Help", items = { Menu{ label = "Palette", screen = .Palette }}},
 }
 
 render_main_menu :: proc(container: Rect, state: ^State) {
@@ -130,21 +141,45 @@ render_main_menu :: proc(container: Rect, state: ^State) {
 
   slot, bar = cut_text_left(container, state, "Couch", FontScale.Normal, TEXT_PAD_X*2)
   render_text(slot, state, "Couch", FontScale.Normal, text_color)
+  menu_clicked := false
 
-  if menu_item(bar, state, "Help") {
-    log.debug("Help clicked")
-    state.current_screen = .Palette
+  for menu in main_menu {
+    menu_clicked, bar = menu_item(bar, state, menu.label)
+    if menu_clicked {
+      if menu.screen != nil {
+        state.current_screen = menu.screen
+      }
+    }
   }
 }
 
 render_palette :: proc(container: Rect, state: ^State) {
+  slot, rest, menubar, statusbar : Rect
+  menubar, rest = cut_top(container, MAIN_MENU_HEIGHT)
+  statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
+
+  render_main_menu(menubar, state)
+
+  row, body_rest, text_slot: Rect
+  body_container := inset(rest, CONTAINER_PADDING, CONTAINER_PADDING)
+  body_rest = body_container
+
   for i in 0..<len(CGA_PALETTE) {
-    row := i%4
-    col := i/4
-    rect := Rect { f32(row*60)+100, f32(col*60)+100, 50, 50 }
-    rl.DrawRectangleRec(rect, CGA_PALETTE[i])
-    rl.DrawRectangleLinesEx(rect, 5, CGA_PALETTE[0])
+    row, body_rest = cut_top(body_rest, ROW_HEIGHT + TEXT_PAD_X)
+
+    color_slot, row_rest := cut_ratio_left(row, 0.3)
+    color_slot = inset(color_slot, 3, 3)
+    rl.DrawRectangleRec(color_slot, CGA_PALETTE[i])
+    rl.DrawRectangleLinesEx(color_slot, 2, CGA_PALETTE[0])
+
+    indx_str := fmt.tprintf("%v", i)
+    text_slot, row_rest = cut_text_left(row_rest, state, indx_str, FontScale.Normal, TEXT_PAD_X)
+    render_text(text_slot, state, indx_str, FontScale.Normal, CGA_PALETTE[14])
+
+    body_rest.x = body_container.x
   }
+
+  render_status_bar(statusbar, state)
 }
 
 render_status_bar :: proc(container: Rect, state: ^State) {
@@ -163,6 +198,7 @@ render_status_bar :: proc(container: Rect, state: ^State) {
       help_command_text = "0-9"
       help_hint_text = "Get input box to enter your reps"
     }
+    case: return
   }
 
   slot, bar = cut_text_left(container, state, help_command_text, FontScale.Normal, TEXT_PAD_X)
