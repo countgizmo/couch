@@ -37,6 +37,15 @@ WidgetID :: struct {
   index: int,
 }
 
+shadow :: proc(r: Rect) -> Rect {
+  return Rect {
+    x = r.x + 20,
+    y = r.y + 20,
+    width = r.width,
+    height = r.height,
+  }
+}
+
 cut_top :: proc(r: Rect, h: f32) -> (strip, rest: Rect) {
   strip = { r.x, r.y, r.width, h }
   rest = { r.x, r.y + h, r.width, r.height - h }
@@ -124,21 +133,32 @@ menu_item :: proc(container: Rect, state: ^State, label: string) -> (bool, Rect)
 }
 
 render_sub_menu :: proc(menu_bar: Rect, state: ^State) {
-  v_padding: f32 = 20
-  h_padding: f32 = 40
+  h_outter_padding: f32 = 20
+  v_outter_padding: f32 = 15
+  h_inner_padding: f32 = 25
+  v_inner_padding: f32 = 25
+
+  total_h_padding := (2 * h_outter_padding) + (2 * h_inner_padding)
+  total_v_padding := (2 * v_outter_padding) + (2 * v_inner_padding)
+
   menu := state.main_menu[state.selected_main_menu_idx]
 
+  // Menu container
   body := Rect {
     x = menu_bar.x,
     y = menu_bar.y + menu_bar.height,
-    width = menu.size.x + (2 * h_padding),
-    height = menu.size.y + (2 * v_padding)
+    width = menu.size.x + total_h_padding,
+    height = menu.size.y +total_v_padding
   }
+  rl.DrawRectangleRec(shadow(body), CGA_PALETTE[0])
   rl.DrawRectangleRec(body, CGA_PALETTE[7])
 
-  inner_body := inset(body, h_padding/2, v_padding/2)
+  // Inner black border
+  inner_body := inset(body, h_outter_padding, v_outter_padding)
   rl.DrawRectangleLinesEx(inner_body, 3, CGA_PALETTE[0])
-  inner_body = inset(body, h_padding, v_padding)
+
+  // Menu items
+  inner_body = inset(inner_body, h_inner_padding, v_inner_padding)
 
   row: Rect
   for item, idx in menu.items {

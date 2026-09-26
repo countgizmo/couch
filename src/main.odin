@@ -332,14 +332,7 @@ render_controls :: proc(container: rl.Rectangle, state: ^State) {
       height = modal_height,
     }
 
-    shadow := rl.Rectangle {
-      x = modal.x + 20,
-      y = modal.y + 20,
-      width = modal_width,
-      height = modal_height,
-    }
-
-    rl.DrawRectangleRec(shadow, CGA_PALETTE[0])
+    rl.DrawRectangleRec(shadow(modal), CGA_PALETTE[0])
     rl.DrawRectangleRec(modal, CGA_PALETTE[1])
 
 

@@ -35,7 +35,6 @@ menu_items_to_vect_column :: proc(state: ^State, scale: FontScale, items: []Menu
     if text_size.x > max_width {
       max_width = text_size.x
     }
-    log.debug(" Label = ", item.label, "Max width = ", text_size.x)
   }
 
   return rl.Vector2 { max_width, total_height }
