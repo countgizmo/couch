@@ -36,6 +36,13 @@ Screen :: enum {
   Palette,
 }
 
+Menu :: struct {
+  label: string,
+  screen: Screen,
+  items: []Menu,
+  size: rl.Vector2,
+}
+
 State :: struct {
   start: time.Time,
   seconds_from_start: f32,
@@ -57,6 +64,8 @@ State :: struct {
   bars: [dynamic]BarView,
   font: rl.Font,
   hot: WidgetID,
+  main_menu: []Menu,
+  selected_main_menu_idx: int,
 
   // Data
   sessions: [dynamic]Session,
@@ -454,8 +463,8 @@ render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
     render_text_in_middle(slot, state, hint_text, FontScale.Normal, CGA_PALETTE[14])
   }
 
-  render_main_menu(menubar, state)
   render_sessions_list(rest, state)
+  render_main_menu(menubar, state)
   render_status_bar(statusbar, state)
 }
 
@@ -515,7 +524,6 @@ render_tracking_screen :: proc(container: Rect, state: ^State) {
   menubar, rest = cut_top(container, MAIN_MENU_HEIGHT)
   statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
 
-  render_main_menu(menubar, state)
 
   // TODO: fix it!
   if state.analytics {
@@ -526,6 +534,7 @@ render_tracking_screen :: proc(container: Rect, state: ^State) {
     render_controls(container, state)
   }
 
+  render_main_menu(menubar, state)
   render_status_bar(statusbar, state)
 }
 
@@ -581,6 +590,36 @@ main :: proc() {
     font = font,
     selected_session_index = -1,
     selected_live_session_entry = -1,
+    selected_main_menu_idx = -1,
+  }
+
+  state.main_menu = []Menu {
+    Menu {
+      label = "Excercises",
+      items = {
+        Menu { label = "All" }
+      }
+    },
+    Menu {
+      label = "Workouts",
+      items = {
+        Menu { label = "All" }
+      }
+    },
+    Menu {
+      label = "Help",
+      items = {
+        Menu { label = "Palette", screen = .Palette },
+        Menu { label = "About" }
+      }
+    },
+  }
+
+  // Precalc sub menu sizes
+  for &menu in state.main_menu {
+    if menu.items != nil {
+      menu.size = menu_items_to_vect_column(&state, FontScale.Normal, menu.items)
+    }
   }
 
   // Hardcoded data for testing stuff

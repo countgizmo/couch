@@ -86,7 +86,7 @@ cut_text_right :: proc(r: Rect, state: ^State, s: string, scale: FontScale, pad:
 cut_text_top :: proc(r: Rect, state: ^State, s: string, scale: FontScale, pad: f32) -> (slot, rect: Rect) {
   c_text := fmt.ctprint(s)
   size, spacing := font_metrics(state, scale)
-  h := rl.MeasureTextEx(state.font, c_text, size, spacing).x
+  h := rl.MeasureTextEx(state.font, c_text, size, spacing).y
   return cut_top(r, h + (2 * pad))
 }
 
@@ -123,29 +123,44 @@ menu_item :: proc(container: Rect, state: ^State, label: string) -> (bool, Rect)
   return item_clicked, bar
 }
 
-Menu :: struct {
-  label: string,
-  screen: Screen,
-  items: []Menu
-}
+render_sub_menu :: proc(menu_bar: Rect, state: ^State) {
+  v_padding: f32 = 20
+  h_padding: f32 = 40
+  menu := state.main_menu[state.selected_main_menu_idx]
 
-main_menu :: [2]Menu  {
-  {label = "Database", items = { Menu{ label = "Excercises" }}},
-  {label = "Help", items = { Menu{ label = "Palette", screen = .Palette }}},
+  body := Rect {
+    x = menu_bar.x,
+    y = menu_bar.y + menu_bar.height,
+    width = menu.size.x + (2 * h_padding),
+    height = menu.size.y + (2 * v_padding)
+  }
+  rl.DrawRectangleRec(body, CGA_PALETTE[7])
+
+  inner_body := inset(body, h_padding/2, v_padding/2)
+  rl.DrawRectangleLinesEx(inner_body, 3, CGA_PALETTE[0])
+  inner_body = inset(body, h_padding, v_padding)
+
+  row: Rect
+  for item, idx in menu.items {
+    row, inner_body = cut_text_top(inner_body, state, item.label, FontScale.Normal, TEXT_PAD_Y)
+    render_text(row, state, item.label, FontScale.Normal, CGA_PALETTE[0])
+  }
 }
 
 render_main_menu :: proc(container: Rect, state: ^State) {
   fill_solid(container, CGA_PALETTE[7])
   text_color := CGA_PALETTE[0]
-  slot, bar : Rect
-
-  slot, bar = cut_text_left(container, state, "Couch", FontScale.Normal, TEXT_PAD_X*2)
-  render_text(slot, state, "Couch", FontScale.Normal, text_color)
+  bar := container
   menu_clicked := false
 
-  for menu in main_menu {
+  for menu, idx in state.main_menu {
+    if state.selected_main_menu_idx == idx {
+      render_sub_menu(bar, state)
+    }
+
     menu_clicked, bar = menu_item(bar, state, menu.label)
     if menu_clicked {
+      state.selected_main_menu_idx = idx
       if menu.screen != nil {
         state.current_screen = menu.screen
       }

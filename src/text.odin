@@ -1,6 +1,7 @@
 package main
 
 import "core:fmt"
+import "core:log"
 import rl "vendor:raylib"
 
 FONT_DATA    :: #load("../assets/Px437_IBM_VGA_8x16.ttf")
@@ -19,6 +20,27 @@ font_metrics :: proc(state: ^State, scale: FontScale) -> (size, spacing: f32) {
     return
 }
 
+menu_items_to_vect_column :: proc(state: ^State, scale: FontScale, items: []Menu) -> rl.Vector2 {
+  max_width: f32 = 0
+  total_height: f32 = 0
+  rect: Rect
+  size, spacing := font_metrics(state, scale)
+
+  for item in items {
+    text := item.label
+    c_text := fmt.ctprint(text)
+    text_size:= rl.MeasureTextEx(state.font, c_text, size, spacing)
+    total_height += text_size.y
+
+    if text_size.x > max_width {
+      max_width = text_size.x
+    }
+    log.debug(" Label = ", item.label, "Max width = ", text_size.x)
+  }
+
+  return rl.Vector2 { max_width, total_height }
+}
+
 render_text_in_middle :: proc (container: rl.Rectangle, state: ^State, text: string, scale: FontScale, color: rl.Color) {
   size, spacing := font_metrics(state, scale)
   c_text := fmt.ctprint(text)
@@ -31,6 +53,6 @@ render_text_in_middle :: proc (container: rl.Rectangle, state: ^State, text: str
 render_text :: proc(container: Rect, state: ^State, text: string, scale: FontScale, color: rl.Color) {
   size, spacing := font_metrics(state, scale)
   c_text := fmt.ctprint(text)
-  text_position := rl.Vector2 { container.x + TEXT_PAD_X, container.y}
+  text_position := rl.Vector2 { container.x, container.y}
   rl.DrawTextEx(state.font, c_text, text_position, size, spacing, color)
 }
