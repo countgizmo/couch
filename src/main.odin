@@ -31,6 +31,7 @@ animate_linear :: proc(animation: Animation) -> f32 {
 }
 
 Screen :: enum {
+  None,
   Start,
   Tracking,
   Palette,
@@ -40,7 +41,7 @@ Menu :: struct {
   label: string,
   screen: Screen,
   items: []Menu,
-  size: rl.Vector2,
+  size_normal: rl.Vector2,
 }
 
 State :: struct {
@@ -64,6 +65,7 @@ State :: struct {
   bars: [dynamic]BarView,
   font: rl.Font,
   hot: WidgetID,
+  current_z_layer: int,
   main_menu: []Menu,
   selected_main_menu_idx: int,
 
@@ -225,7 +227,7 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
     height = column_height,
   }
 
-  column_clicked := rl.CheckCollisionPointRec(mouse, column) && rl.IsMouseButtonDown(rl.MouseButton.LEFT)
+  column_clicked := rl.CheckCollisionPointRec(mouse, column) && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
   if column_clicked {
     state.selected_live_session_entry = idx
   }
@@ -381,7 +383,6 @@ handle_enter :: proc(state: ^State) {
 }
 
 update :: proc(state: ^State) {
-
   // Time
   if !state.paused && state.started {
     state.seconds_from_start += rl.GetFrameTime()
@@ -391,6 +392,7 @@ update :: proc(state: ^State) {
     state.inputting = true
   }
 
+  // Are we running a training session?
   if state.selected_session_index > -1 {
     session := state.sessions[state.selected_session_index]
 
@@ -427,6 +429,10 @@ update :: proc(state: ^State) {
       state.paused = !state.paused
     }
   }
+
+
+  // Mouse
+
 
   // Animation
   if state.hr_beat_animation.running {
@@ -535,6 +541,7 @@ render :: proc(state: ^State) {
   screen := Rect{0, 0, f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
 
   switch state.current_screen {
+  case .None: return
   case .Start:
     render_start_screen(screen, state)
   case .Tracking:
@@ -546,9 +553,7 @@ render :: proc(state: ^State) {
 
 main :: proc() {
   context.logger = log.create_console_logger()
-
   cb_central_manager := init_whoop_reading()
-
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
@@ -569,6 +574,7 @@ main :: proc() {
   for r in 32..=126        do append(&codepoints, rune(r))
   for r in 0x2500..=0x257F do append(&codepoints, rune(r)) // box drawing
   for r in 0x2580..=0x259F do append(&codepoints, rune(r)) // blocks ░▒▓█
+  append(&codepoints, rune(0x2261)) // ≡
   // plus 0x2190..0x2195 arrows, 0x00B0, 0x263A..., as needed
 
   font := rl.LoadFontFromMemory(".ttf", raw_data(FONT_DATA), i32(len(FONT_DATA)),
@@ -588,7 +594,11 @@ main :: proc() {
 
   state.main_menu = []Menu {
     Menu {
-      label = "Excercises",
+      label = "≡",
+      screen = .Start,
+    },
+    Menu {
+      label = "Exercises",
       items = {
         Menu { label = "All" }
       }
@@ -611,7 +621,7 @@ main :: proc() {
   // Precalc sub menu sizes
   for &menu in state.main_menu {
     if menu.items != nil {
-      menu.size = menu_items_to_vect_column(&state, FontScale.Normal, menu.items)
+      menu.size_normal = menu_items_to_vect_column(&state, FontScale.Normal, menu.items)
     }
   }
 

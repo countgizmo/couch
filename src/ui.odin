@@ -133,6 +133,10 @@ menu_item :: proc(container: Rect, state: ^State, label: string) -> (bool, Rect)
 }
 
 render_sub_menu :: proc(menu_bar: Rect, state: ^State) {
+  menu := state.main_menu[state.selected_main_menu_idx]
+  if menu.items == nil do return
+
+  mouse := rl.GetMousePosition()
   h_outter_padding: f32 = 20
   v_outter_padding: f32 = 15
   h_inner_padding: f32 = 25
@@ -141,14 +145,14 @@ render_sub_menu :: proc(menu_bar: Rect, state: ^State) {
   total_h_padding := (2 * h_outter_padding) + (2 * h_inner_padding)
   total_v_padding := (2 * v_outter_padding) + (2 * v_inner_padding)
 
-  menu := state.main_menu[state.selected_main_menu_idx]
+  scale := FontScale.Normal
 
   // Menu container
   body := Rect {
     x = menu_bar.x,
     y = menu_bar.y + menu_bar.height,
-    width = menu.size.x + total_h_padding,
-    height = menu.size.y +total_v_padding
+    width = menu.size_normal.x + total_h_padding,
+    height = menu.size_normal.y +total_v_padding
   }
   rl.DrawRectangleRec(shadow(body), CGA_PALETTE[0])
   rl.DrawRectangleRec(body, CGA_PALETTE[7])
@@ -162,8 +166,37 @@ render_sub_menu :: proc(menu_bar: Rect, state: ^State) {
 
   row: Rect
   for item, idx in menu.items {
-    row, inner_body = cut_text_top(inner_body, state, item.label, FontScale.Normal, TEXT_PAD_Y)
-    render_text(row, state, item.label, FontScale.Normal, CGA_PALETTE[0])
+    row, inner_body = cut_text_top(inner_body, state, item.label, scale, TEXT_PAD_Y)
+
+    if state.current_z_layer == 1 {
+      row_id := WidgetID { "main_sub_menu", idx }
+      if rl.CheckCollisionPointRec(mouse, row) {
+        state.hot = row_id
+      }
+
+      mouse_clicked := rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
+      row_hovered := state.hot.name == row_id.name && state.hot.index == idx
+      row_clicked := row_hovered && mouse_clicked
+
+      if row_hovered {
+        fill_solid(row, CGA_PALETTE[2])
+      }
+
+      if row_clicked {
+        state.selected_main_menu_idx = -1
+        state.current_z_layer = 0
+
+        if item.screen != .None {
+          state.current_screen = item.screen
+        }
+      } else if mouse_clicked {
+        // Hide the main menu dropdown
+        state.selected_main_menu_idx = -1
+        state.current_z_layer = 0
+      }
+    }
+
+    render_text(row, state, item.label, scale, CGA_PALETTE[0])
   }
 }
 
@@ -181,8 +214,10 @@ render_main_menu :: proc(container: Rect, state: ^State) {
     menu_clicked, bar = menu_item(bar, state, menu.label)
     if menu_clicked {
       state.selected_main_menu_idx = idx
-      if menu.screen != nil {
+      state.current_z_layer = 1
+      if menu.screen != .None {
         state.current_screen = menu.screen
+        state.current_z_layer = 0
       }
     }
   }
@@ -192,8 +227,6 @@ render_palette :: proc(container: Rect, state: ^State) {
   slot, rest, menubar, statusbar : Rect
   menubar, rest = cut_top(container, MAIN_MENU_HEIGHT)
   statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
-
-  render_main_menu(menubar, state)
 
   row, body_rest, text_slot: Rect
   body_container := inset(rest, CONTAINER_PADDING, CONTAINER_PADDING)
@@ -214,6 +247,7 @@ render_palette :: proc(container: Rect, state: ^State) {
     body_rest.x = body_container.x
   }
 
+  render_main_menu(menubar, state)
   render_status_bar(statusbar, state)
 }
 
@@ -262,32 +296,29 @@ render_sessions_list :: proc(container: Rect, state: ^State) {
   body_rest := container
   vline := "|"
   mouse := rl.GetMousePosition()
-  row_text_color : rl.Color
 
   for idx in 0..<len(state.sessions) {
+    row_text_color := CGA_PALETTE[14]
     row_id := WidgetID { "session_row", idx }
 
     session := state.sessions[idx]
     row, body_rest = cut_top(body_rest, ROW_HEIGHT + TEXT_PAD_X)
 
-    // Check for hover
-    if rl.CheckCollisionPointRec(mouse, row) {
-      state.hot = row_id
-    }
+    if state.current_z_layer == 0 {
+      if rl.CheckCollisionPointRec(mouse, row) {
+        state.hot = row_id
+      }
 
-    // Checking for all the interactions
-    row_hovered := state.hot.name == row_id.name && state.hot.index == idx
-    row_clicked := row_hovered && rl.IsMouseButtonDown(rl.MouseButton.LEFT)
+      row_hovered := state.hot.name == row_id.name && state.hot.index == idx
+      row_clicked := row_hovered && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
+      if row_hovered {
+        fill_solid(row, CGA_PALETTE[14])
+        row_text_color = CGA_PALETTE[1]
+      }
 
-    if row_hovered {
-      fill_solid(row, CGA_PALETTE[14])
-      row_text_color = CGA_PALETTE[1]
-    } else {
-      row_text_color = CGA_PALETTE[14]
-    }
-
-    if row_clicked {
-      state.selected_session_index = idx
+      if row_clicked {
+        state.selected_session_index = idx
+      }
     }
 
     if idx == state.selected_session_index {
