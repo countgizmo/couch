@@ -55,3 +55,14 @@ render_text :: proc(container: Rect, state: ^State, text: string, scale: FontSca
   text_position := rl.Vector2 { container.x, container.y}
   rl.DrawTextEx(state.font, c_text, text_position, size, spacing, color)
 }
+
+render_padded_text :: proc(container: Rect, state: ^State, text: string, scale: FontScale, color: rl.Color, h_pad: f32, v_pad: f32 = 0) {
+  r := Rect {
+    x = container.x + h_pad,
+    y = container.y + v_pad,
+    width = container.width - (2 * h_pad),
+    height = container.height - (2 * v_pad)
+  }
+
+  render_text(r, state, text, scale, color)
+}

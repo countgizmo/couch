@@ -251,6 +251,54 @@ render_palette :: proc(container: Rect, state: ^State) {
   render_status_bar(statusbar, state)
 }
 
+render_exercises_list :: proc(container: Rect, state: ^State) {
+  get_all_exercise(state)
+  slot, rest, menubar, statusbar : Rect
+  menubar, rest = cut_top(container, MAIN_MENU_HEIGHT)
+  statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
+
+  row, body_rest, text_slot, row_rest: Rect
+  body_container := inset(rest, CONTAINER_PADDING, CONTAINER_PADDING)
+  body_rest = body_container
+
+  for idx in 0..<len(state.exercises) {
+    exercise := state.exercises[idx]
+    row, body_rest = cut_top(body_rest, ROW_HEIGHT + TEXT_PAD_X)
+
+    // First Cell: ID
+    slot, row_rest = cut_left(row, 5)
+    slot = center(slot, 3, slot.height)
+    rl.DrawLineEx(
+      {slot.x+slot.width, slot.y},
+      {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[14])
+
+    id_str := fmt.tprintf("%v", exercise.id)
+    slot, row_rest = cut_text_left(row_rest, state, id_str, FontScale.Normal, TEXT_PAD_X)
+    render_text_in_middle(slot, state, id_str, FontScale.Normal, CGA_PALETTE[15])
+
+    // Second Cell: title
+    slot, row_rest = cut_left(row_rest, 5)
+    slot = center(slot, 3, slot.height)
+
+    rl.DrawLineEx(
+      {slot.x+slot.width, slot.y},
+      {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[14])
+
+    text_slot, row_rest = cut_text_left(row_rest, state, exercise.title, FontScale.Normal, TEXT_PAD_X)
+    render_padded_text(text_slot, state, exercise.title, FontScale.Normal, CGA_PALETTE[15], TEXT_PAD_X)
+
+    slot, _ = cut_right(row_rest, 5)
+    slot = center(slot, 3, slot.height)
+
+    rl.DrawLineEx(
+      {slot.x+slot.width, slot.y},
+      {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[14])
+  }
+
+  render_main_menu(menubar, state)
+  render_status_bar(statusbar, state)
+}
+
 render_status_bar :: proc(container: Rect, state: ^State) {
   fill_solid(container, CGA_PALETTE[7])
   slot, bar : Rect

@@ -6,6 +6,7 @@ import "core:log"
 import "core:strconv"
 import "core:os"
 import "core:math"
+import "core:c"
 import rl "vendor:raylib"
 
 Animation :: struct {
@@ -35,6 +36,7 @@ Screen :: enum {
   Start,
   Tracking,
   Palette,
+  Exercises,
 }
 
 Menu :: struct {
@@ -44,6 +46,18 @@ Menu :: struct {
   size_normal: rl.Vector2,
 }
 
+Exercise :: struct {
+  id: i64,
+  title: string,
+}
+
+delete_exercises :: proc(state: ^State) {
+  for e in state.exercises {
+    delete(e.title)
+  }
+  clear(&state.exercises)
+}
+
 State :: struct {
   start: time.Time,
   seconds_from_start: f32,
@@ -51,6 +65,7 @@ State :: struct {
   started: bool,
   paused: bool,
   done: bool,
+  db: ^DB,
 
   // Controls
   keys_pressed: [dynamic]u8,
@@ -70,13 +85,10 @@ State :: struct {
   selected_main_menu_idx: int,
 
   // Data
+  exercises: [dynamic]Exercise,
   sessions: [dynamic]Session,
   selected_session_index: int,
   selected_live_session_entry: int
-}
-
-Exercise :: struct {
-  title: string,
 }
 
 Session :: struct {
@@ -548,6 +560,8 @@ render :: proc(state: ^State) {
     render_tracking_screen(screen, state)
   case .Palette:
     render_palette(screen, state)
+  case .Exercises:
+    render_exercises_list(screen, state)
   }
 }
 
@@ -581,6 +595,20 @@ main :: proc() {
     16, raw_data(codepoints[:]), i32(len(codepoints)))
   rl.SetTextureFilter(font.texture, .POINT)
 
+  // Init the DB
+  db: ^DB
+  flags: c.int = OPEN_READWRITE | OPEN_CREATE
+  db_open_result := sqlite3_open_v2("test.db", &db, flags, nil)
+  defer sqlite3_close(db)
+
+  if db_open_result != .ok {
+    log.error("Couldn't open the DB", db_open_result)
+    return
+  }
+
+  init_db(db)
+
+  // Make basic state
   state := State {
     current_screen = .Start,
     analytics = false,
@@ -590,6 +618,7 @@ main :: proc() {
     selected_session_index = -1,
     selected_live_session_entry = -1,
     selected_main_menu_idx = -1,
+    db = db
   }
 
   state.main_menu = []Menu {
@@ -600,7 +629,7 @@ main :: proc() {
     Menu {
       label = "Exercises",
       items = {
-        Menu { label = "All" }
+        Menu { label = "All", screen = .Exercises }
       }
     },
     Menu {
