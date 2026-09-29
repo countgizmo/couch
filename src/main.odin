@@ -462,11 +462,8 @@ update :: proc(state: ^State) {
 }
 
 render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
-  slot, rest, menubar, statusbar : Rect
-  menubar, rest = cut_top(container, MAIN_MENU_HEIGHT)
-  statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
-
-  slot = inset(rest, CONTAINER_PADDING, CONTAINER_PADDING)
+  slot, rest: Rect
+  slot = inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
   slot, rest = cut_ratio_bottom(slot, 0.3)
 
   if state.selected_session_index > -1 {
@@ -475,8 +472,6 @@ render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
   }
 
   render_sessions_list(rest, state)
-  render_main_menu(menubar, state)
-  render_status_bar(statusbar, state)
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
@@ -531,38 +526,36 @@ render_live_session :: proc(container: Rect, state: ^State) {
 }
 
 render_tracking_screen :: proc(container: Rect, state: ^State) {
-  rest, menubar, statusbar : Rect
-  menubar, rest = cut_top(container, MAIN_MENU_HEIGHT)
-  statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
-
-
   // TODO: fix it!
   if state.analytics {
     //render_axis(tracking_section, CGA_PALETTE[4])
     // render_analytics(state)
   } else {
-    render_live_session(rest, state)
+    render_live_session(container, state)
     render_controls(container, state)
   }
-
-  render_main_menu(menubar, state)
-  render_status_bar(statusbar, state)
 }
 
 render :: proc(state: ^State) {
   screen := Rect{0, 0, f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight())}
+  slot, rest, menubar, statusbar : Rect
+  menubar, rest = cut_top(screen, MAIN_MENU_HEIGHT)
+  statusbar, rest = cut_bottom(rest, MAIN_MENU_HEIGHT)
 
   switch state.current_screen {
   case .None: return
   case .Start:
-    render_start_screen(screen, state)
+    render_start_screen(rest, state)
   case .Tracking:
-    render_tracking_screen(screen, state)
+    render_tracking_screen(rest, state)
   case .Palette:
-    render_palette(screen, state)
+    render_palette(rest, state)
   case .Exercises:
-    render_exercises_list(screen, state)
+    render_exercises_list(rest, state)
   }
+
+  render_main_menu(menubar, state)
+  render_status_bar(statusbar, state)
 }
 
 main :: proc() {
