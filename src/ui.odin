@@ -7,7 +7,7 @@ import rl "vendor:raylib"
 
 MENU_COLOR: rl.Color: { 170, 170, 170, 255}
 MAIN_MENU_HEIGHT :: 30
-ROW_HEIGHT :: 20
+ROW_HEIGHT :: 24
 FONT_SIZE :: 16
 
 CGA_PALETTE := [16]rl.Color{
@@ -244,6 +244,29 @@ render_palette :: proc(container: Rect, state: ^State) {
   }
 }
 
+render_cell_border_left :: proc(container: Rect) -> Rect {
+  slot, container_rest := cut_left(container, 5)
+  slot = center(slot, 3, slot.height)
+
+  rl.DrawLineEx(
+    {slot.x+slot.width, slot.y},
+    {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[14])
+
+  return container_rest
+}
+
+render_cell_border_right :: proc(container: Rect) -> Rect {
+  slot, container_rest := cut_right(container, 5)
+  slot = center(slot, 3, slot.height)
+
+  rl.DrawLineEx(
+    {slot.x+slot.width, slot.y},
+    {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[14])
+
+  return container_rest
+
+}
+
 render_exercises_list :: proc(container: Rect, state: ^State) {
   get_all_exercise(state)
 
@@ -251,39 +274,36 @@ render_exercises_list :: proc(container: Rect, state: ^State) {
   body_container := inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
   body_rest = body_container
 
+  // Header
+  row, body_rest = cut_top(body_rest, ROW_HEIGHT + (4 * TEXT_PAD_Y))
+  row_rest = render_cell_border_left(row)
+  header := "ID"
+  slot, row_rest = cut_text_left(row_rest, state, header, FontScale.Normal, TEXT_PAD_X)
+  render_text_in_middle(slot, state, header, FontScale.Normal, CGA_PALETTE[14])
+  row_rest = render_cell_border_left(row_rest)
+
+  header = "Title"
+  render_text_in_middle(row_rest, state, header, FontScale.Normal, CGA_PALETTE[14])
+  render_cell_border_right(row_rest)
+
+  _, body_rest = cut_top(body_rest, 3 * TEXT_PAD_Y)
+
   for idx in 0..<len(state.exercises) {
     exercise := state.exercises[idx]
-    row, body_rest = cut_top(body_rest, ROW_HEIGHT + TEXT_PAD_X)
+    row, body_rest = cut_top(body_rest, ROW_HEIGHT + TEXT_PAD_Y)
 
     // First Cell: ID
-    slot, row_rest = cut_left(row, 5)
-    slot = center(slot, 3, slot.height)
-    rl.DrawLineEx(
-      {slot.x+slot.width, slot.y},
-      {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[14])
-
+    row_rest = render_cell_border_left(row)
     id_str := fmt.tprintf("%v", exercise.id)
-    slot, row_rest = cut_text_left(row_rest, state, id_str, FontScale.Normal, TEXT_PAD_X)
+    slot, row_rest = cut_text_left(row_rest, state, "ID", FontScale.Normal, TEXT_PAD_X)
     render_text_in_middle(slot, state, id_str, FontScale.Normal, CGA_PALETTE[15])
 
     // Second Cell: title
-    slot, row_rest = cut_left(row_rest, 5)
-    slot = center(slot, 3, slot.height)
-
-    rl.DrawLineEx(
-      {slot.x+slot.width, slot.y},
-      {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[14])
-
+    row_rest = render_cell_border_left(row_rest)
     text_slot, row_rest = cut_text_left(row_rest, state, exercise.title, FontScale.Normal, TEXT_PAD_X)
     render_padded_text(text_slot, state, exercise.title, FontScale.Normal, CGA_PALETTE[15], TEXT_PAD_X)
 
-    // Line on the right side at the end of the row
-    slot, _ = cut_right(row_rest, 5)
-    slot = center(slot, 3, slot.height)
-
-    rl.DrawLineEx(
-      {slot.x+slot.width, slot.y},
-      {slot.x+slot.width, slot.y+slot.height}, 3, CGA_PALETTE[14])
+    render_cell_border_right(row_rest)
   }
 }
 
