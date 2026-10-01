@@ -6,7 +6,7 @@ import "core:log"
 import rl "vendor:raylib"
 
 MENU_COLOR: rl.Color: { 170, 170, 170, 255}
-MAIN_MENU_HEIGHT :: 30
+MAIN_MENU_HEIGHT :: 32
 ROW_HEIGHT :: 24
 FONT_SIZE :: 16
 
@@ -268,6 +268,8 @@ render_cell_border_right :: proc(container: Rect) -> Rect {
 }
 
 render_exercises_list :: proc(container: Rect, state: ^State) {
+  font_scale := FontScale.Normal
+  row_height := f32(state.font.baseSize) * f32(font_scale)
   get_all_exercise(state)
 
   slot, row, body_rest, text_slot, row_rest: Rect
@@ -275,33 +277,33 @@ render_exercises_list :: proc(container: Rect, state: ^State) {
   body_rest = body_container
 
   // Header
-  row, body_rest = cut_top(body_rest, ROW_HEIGHT + (4 * TEXT_PAD_Y))
+  row, body_rest = cut_top(body_rest, row_height)
   row_rest = render_cell_border_left(row)
   header := "ID"
-  slot, row_rest = cut_text_left(row_rest, state, header, FontScale.Normal, TEXT_PAD_X)
-  render_text_in_middle(slot, state, header, FontScale.Normal, CGA_PALETTE[14])
+  slot, row_rest = cut_text_left(row_rest, state, header, font_scale, TEXT_PAD_X)
+  render_text_in_middle(slot, state, header, font_scale, CGA_PALETTE[14])
   row_rest = render_cell_border_left(row_rest)
 
   header = "Title"
-  render_text_in_middle(row_rest, state, header, FontScale.Normal, CGA_PALETTE[14])
+  render_text_in_middle(row_rest, state, header, font_scale, CGA_PALETTE[14])
   render_cell_border_right(row_rest)
 
   _, body_rest = cut_top(body_rest, 3 * TEXT_PAD_Y)
 
   for idx in 0..<len(state.exercises) {
     exercise := state.exercises[idx]
-    row, body_rest = cut_top(body_rest, ROW_HEIGHT + TEXT_PAD_Y)
+    row, body_rest = cut_top(body_rest, row_height)
 
     // First Cell: ID
     row_rest = render_cell_border_left(row)
     id_str := fmt.tprintf("%v", exercise.id)
-    slot, row_rest = cut_text_left(row_rest, state, "ID", FontScale.Normal, TEXT_PAD_X)
-    render_text_in_middle(slot, state, id_str, FontScale.Normal, CGA_PALETTE[15])
+    slot, row_rest = cut_text_left(row_rest, state, "ID", font_scale, TEXT_PAD_X)
+    render_text_in_middle(slot, state, id_str, font_scale, CGA_PALETTE[15])
 
     // Second Cell: title
     row_rest = render_cell_border_left(row_rest)
-    text_slot, row_rest = cut_text_left(row_rest, state, exercise.title, FontScale.Normal, TEXT_PAD_X)
-    render_padded_text(text_slot, state, exercise.title, FontScale.Normal, CGA_PALETTE[15], TEXT_PAD_X)
+    text_slot, row_rest = cut_text_left(row_rest, state, exercise.title, font_scale, TEXT_PAD_X)
+    render_padded_text(text_slot, state, exercise.title, font_scale, CGA_PALETTE[15], TEXT_PAD_X)
 
     render_cell_border_right(row_rest)
   }
