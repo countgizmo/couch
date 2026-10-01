@@ -20,11 +20,15 @@ rescode :: enum c.int {
 OPEN_READWRITE :: 0x2
 OPEN_CREATE    :: 0x4
 
+Exec_Callback :: proc "c" (user: rawptr, n_cols: c.int, values: [^]cstring, names: [^]cstring) -> c.int
+
 @(default_calling_convention="c")
 foreign sqlite {
   sqlite3_libversion :: proc() -> cstring ---
   sqlite3_open_v2 :: proc(database: cstring, db: ^^DB, flags: c.int, vfs: cstring) -> rescode ---
   sqlite3_close :: proc(db: ^DB) -> rescode ---
+  sqlite3_exec :: proc(db: ^DB, sql: cstring, callback: Exec_Callback, user: rawptr, errmsg: ^cstring) -> rescode ---
+  sqlite3_free :: proc(p: rawptr) ---
   sqlite3_prepare_v2 :: proc(db: ^DB, sql: cstring, nbytes: c.int, stmt: ^^Stmt, tail: ^cstring) -> rescode ---
   sqlite3_finalize :: proc(stmt: ^Stmt) -> rescode ---
   sqlite3_step :: proc(stmt: ^Stmt) -> rescode ---
@@ -97,17 +101,57 @@ insert_exercise :: proc(db: ^DB, name: string) -> bool {
   return true
 }
 
+create_workouts_table :: proc(db: ^DB) -> bool {
+  sql: cstring = "CREATE TABLE IF NOT EXISTS workout (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)"
+  return create_table(db, sql)
+}
+
+create_workout_exercise_table :: proc(db: ^DB) -> bool {
+  sql: cstring = `
+CREATE TABLE IF NOT EXISTS workout_exercise (
+    id          INTEGER PRIMARY KEY,
+    workout_id  INTEGER NOT NULL,
+    exercise_id INTEGER NOT NULL,
+    FOREIGN KEY (workout_id)  REFERENCES workout(id)  ON DELETE CASCADE,
+    FOREIGN KEY (exercise_id) REFERENCES exercise(id)
+);`
+  return create_table(db, sql)
+}
+
+setup_db :: proc(db: ^DB) {
+  errmsg: cstring
+  if sqlite3_exec(db, "PRAGMA foreign_keys = ON;" , nil, nil, &errmsg) != rescode.ok {
+    log.error("sqlite error:", errmsg)
+    sqlite3_free(rawptr(errmsg))
+  }
+}
+
 init_db :: proc(db: ^DB) {
+  setup_db(db)
+
   result := create_exercises_table(db)
 
   if !result {
-    log.error("Couldn't create exercises table");
+    log.error("Couldn't create exercise table")
     return
   }
 
   for name in exercise_names {
     insert_exercise(db, name)
   }
+
+  result = create_workouts_table(db)
+  if !result {
+    log.error("Couldn't create workout table")
+    return
+  }
+
+  result = create_workout_exercise_table(db)
+  if !result {
+    log.error("Couldn't create workout_exercise table")
+    return
+  }
+
 }
 
 get_all_exercise :: proc(state: ^State) -> bool {
