@@ -267,6 +267,49 @@ render_cell_border_right :: proc(container: Rect) -> Rect {
 
 }
 
+render_workout_row :: proc(row: Rect, idx: int, state: ^State) -> bool {
+  mouse := rl.GetMousePosition()
+  item_id := WidgetID { name = "workout_row", index = idx }
+  slot, row_rest: Rect
+  font_scale := FontScale.Normal
+  workout := state.workouts[idx]
+
+  if rl.CheckCollisionPointRec(mouse, row) {
+    state.hot = item_id
+  }
+
+  row_hovered := state.hot.name == item_id.name && state.hot.index == item_id.index
+  row_clicked := row_hovered && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
+
+  if row_hovered {
+    fill_solid(row, CGA_PALETTE[2])
+  }
+
+  // First Cell: ID
+  row_rest = render_cell_border_left(row)
+  id_str := fmt.tprintf("%v", workout.id)
+  slot, row_rest = cut_text_left(row_rest, state, "ID", font_scale, TEXT_PAD_X)
+  render_text_in_middle(slot, state, id_str, font_scale, CGA_PALETTE[15])
+
+  // Second Cell: title
+  row_rest = render_cell_border_left(row_rest)
+  slot, row_rest = cut_ratio_left(row_rest, 0.8)
+  render_padded_text(slot, state, workout.name, font_scale, CGA_PALETTE[15], TEXT_PAD_X)
+
+  // Third Cell: duration
+  row_rest = render_cell_border_left(row_rest)
+  duration_str := fmt.tprintf("%v", workout.duration)
+  render_text_in_middle(row_rest, state, duration_str, font_scale, CGA_PALETTE[15])
+
+  render_cell_border_right(row_rest)
+
+  return row_clicked
+}
+
+render_modal_ex_list :: proc(idx: int, state: ^State) {
+  log.debug("workout row clicked")
+}
+
 render_workouts_list :: proc(container: Rect, state: ^State) {
   font_scale := FontScale.Normal
   row_height := f32(state.font.baseSize) * f32(font_scale)
@@ -296,26 +339,10 @@ render_workouts_list :: proc(container: Rect, state: ^State) {
   _, body_rest = cut_top(body_rest, 3 * TEXT_PAD_Y)
 
   for idx in 0..<len(state.workouts) {
-    workout := state.workouts[idx]
     row, body_rest = cut_top(body_rest, row_height)
-
-    // First Cell: ID
-    row_rest = render_cell_border_left(row)
-    id_str := fmt.tprintf("%v", workout.id)
-    slot, row_rest = cut_text_left(row_rest, state, "ID", font_scale, TEXT_PAD_X)
-    render_text_in_middle(slot, state, id_str, font_scale, CGA_PALETTE[15])
-
-    // Second Cell: title
-    row_rest = render_cell_border_left(row_rest)
-    text_slot, row_rest = cut_ratio_left(row_rest, 0.8)
-    render_padded_text(text_slot, state, workout.name, font_scale, CGA_PALETTE[15], TEXT_PAD_X)
-
-    // Third Cell: duration
-    row_rest = render_cell_border_left(row_rest)
-    duration_str := fmt.tprintf("%v", workout.duration)
-    render_text_in_middle(row_rest, state, duration_str, font_scale, CGA_PALETTE[15])
-
-    render_cell_border_right(row_rest)
+    if render_workout_row(row, idx, state) {
+      render_modal_ex_list(idx, state)
+    }
   }
 }
 
