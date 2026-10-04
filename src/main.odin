@@ -40,6 +40,12 @@ Screen :: enum {
   Workouts,
 }
 
+Modal :: enum {
+  None,
+  RepsInput,
+  WorkoutDetails,
+}
+
 Menu :: struct {
   label: string,
   screen: Screen,
@@ -83,7 +89,6 @@ State :: struct {
 
   // Controls
   keys_pressed: [dynamic]u8,
-  inputting: bool,
   analytics: bool,
 
   // Animation
@@ -91,6 +96,7 @@ State :: struct {
 
   // UI
   current_screen: Screen,
+  current_modal: Modal,
   bars: [dynamic]BarView,
   font: rl.Font,
   hot: WidgetID,
@@ -103,7 +109,8 @@ State :: struct {
   workouts: [dynamic]Workout,
   sessions: [dynamic]Session,
   selected_session_index: int,
-  selected_live_session_entry: int
+  selected_live_session_entry: int,
+  selected_workout_index: int,
 }
 
 Session :: struct {
@@ -350,30 +357,6 @@ render_session :: proc(container: rl.Rectangle, state: ^State) {
   }
 }
 
-render_controls :: proc(container: rl.Rectangle, state: ^State) {
-  if state.inputting {
-    modal_width:f32 = 150
-    modal_height:f32 = 60
-    modal := rl.Rectangle {
-      x = cast(f32)(container.width/2) - (modal_width/2),
-      y = cast(f32)(container.height/2) - (modal_height/2),
-      width = modal_width,
-      height = modal_height,
-    }
-
-    rl.DrawRectangleRec(shadow(modal), CGA_PALETTE[0])
-    rl.DrawRectangleRec(modal, CGA_PALETTE[1])
-
-
-    rl.DrawRectangleLinesEx(modal, 4, CGA_PALETTE[14])
-
-    text := fmt.tprintf("%v", convert_to_number(state.keys_pressed))
-    font_size: f32 = 50
-
-    render_text_in_middle(modal, state, text, FontScale.Big, CGA_PALETTE[14])
-  }
-}
-
 convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
     result: i32 = 0
     for digit_byte in ascii_digits {
@@ -386,7 +369,7 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
 }
 
 handle_enter :: proc(state: ^State) {
-  state.inputting = false
+  state.current_modal = .None
   reps_num := convert_to_number(state.keys_pressed)
 
   if state.selected_live_session_entry > -1 {
@@ -416,7 +399,7 @@ update :: proc(state: ^State) {
   }
 
   if state.selected_live_session_entry > -1 {
-    state.inputting = true
+    state.current_modal = .RepsInput
   }
 
   // Are we running a training session?
@@ -439,7 +422,7 @@ update :: proc(state: ^State) {
   case .A:
     state.analytics = !state.analytics
   case .ZERO..=.NINE:
-    state.inputting = true
+    state.current_modal = .RepsInput
     append(&state.keys_pressed, cast(u8)key)
   case .BACKSPACE:
     if len(state.keys_pressed) > 0 {
@@ -547,7 +530,6 @@ render_tracking_screen :: proc(container: Rect, state: ^State) {
     // render_analytics(state)
   } else {
     render_live_session(container, state)
-    render_controls(container, state)
   }
 }
 
@@ -573,6 +555,16 @@ render :: proc(state: ^State) {
 
   render_main_menu(menubar, state)
   render_status_bar(statusbar, state)
+
+  // Modal is on top of everything, so is rendered last
+
+  switch state.current_modal {
+  case .None:
+  case .RepsInput:
+    render_modal_reps_input(screen, state)
+  case .WorkoutDetails:
+    render_modal_ex_list(screen, state)
+  }
 }
 
 main :: proc() {
@@ -628,6 +620,7 @@ main :: proc() {
     selected_session_index = -1,
     selected_live_session_entry = -1,
     selected_main_menu_idx = -1,
+    selected_workout_index = -1,
     db = db
   }
 

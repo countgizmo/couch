@@ -306,8 +306,32 @@ render_workout_row :: proc(row: Rect, idx: int, state: ^State) -> bool {
   return row_clicked
 }
 
-render_modal_ex_list :: proc(idx: int, state: ^State) {
-  log.debug("workout row clicked")
+render_modal_reps_input :: proc(container: Rect, state: ^State) {
+  modal_width:f32 = 150
+  modal_height:f32 = 60
+  modal := rl.Rectangle {
+    x = cast(f32)(container.width/2) - (modal_width/2),
+    y = cast(f32)(container.height/2) - (modal_height/2),
+    width = modal_width,
+    height = modal_height,
+  }
+
+  rl.DrawRectangleRec(shadow(modal), CGA_PALETTE[0])
+  rl.DrawRectangleRec(modal, CGA_PALETTE[1])
+
+  rl.DrawRectangleLinesEx(modal, 4, CGA_PALETTE[14])
+
+  text := fmt.tprintf("%v", convert_to_number(state.keys_pressed))
+  font_size: f32 = 50
+
+  render_text_in_middle(modal, state, text, FontScale.Big, CGA_PALETTE[14])
+}
+
+render_modal_ex_list :: proc(container: Rect, state: ^State) {
+  slot := inset(container, 300, 200)
+  workout := state.workouts[state.selected_workout_index]
+  fill_solid(slot, CGA_PALETTE[7])
+  // state.selected_workout_index = -1
 }
 
 render_workouts_list :: proc(container: Rect, state: ^State) {
@@ -341,7 +365,8 @@ render_workouts_list :: proc(container: Rect, state: ^State) {
   for idx in 0..<len(state.workouts) {
     row, body_rest = cut_top(body_rest, row_height)
     if render_workout_row(row, idx, state) {
-      render_modal_ex_list(idx, state)
+      state.current_modal = .WorkoutDetails
+      state.selected_workout_index = idx
     }
   }
 }
