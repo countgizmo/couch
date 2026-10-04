@@ -101,8 +101,49 @@ insert_exercise :: proc(db: ^DB, name: string) -> bool {
   return true
 }
 
+insert_workout :: proc(db: ^DB, name: string, duration: i64) -> bool {
+  c_name := strings.clone_to_cstring(name)
+  defer delete(c_name)
+  insert_stmt: ^Stmt
+
+  insert_sql: cstring = "INSERT OR IGNORE INTO workout (name, duration) VALUES (?, ?)"
+  result := sqlite3_prepare_v2(db, insert_sql, -1, &insert_stmt, nil)
+  defer sqlite3_finalize(insert_stmt)
+
+  if result != .ok {
+    log.error("Failed to prepare statement", result)
+    return false
+  }
+
+  result = sqlite3_bind_text(insert_stmt, 1, c_name, -1, ~uintptr(0))
+
+  if result != .ok {
+    log.error("Failed to bind name", result)
+    return false
+  }
+
+  result = sqlite3_bind_int64(insert_stmt, 2, duration)
+
+  if result != .ok {
+    log.error("Failed to bind duratino", result)
+    return false
+  }
+
+
+  result = sqlite3_step(insert_stmt)
+
+  if result != .done {
+    log.error("Failed to insert a row", result)
+    return false
+  }
+
+  return true
+}
+
+
+
 create_workouts_table :: proc(db: ^DB) -> bool {
-  sql: cstring = "CREATE TABLE IF NOT EXISTS workout (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE)"
+  sql: cstring = "CREATE TABLE IF NOT EXISTS workout (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, duration INTEGER NOT NULL)"
   return create_table(db, sql)
 }
 
@@ -126,6 +167,11 @@ setup_db :: proc(db: ^DB) {
   }
 }
 
+workouts := []Workout {
+  { name = "KB Snatches", duration = 20 },
+  { name = "KB Clean & Press + Front Squats", duration = 30 }
+}
+
 init_db :: proc(db: ^DB) {
   setup_db(db)
 
@@ -144,6 +190,10 @@ init_db :: proc(db: ^DB) {
   if !result {
     log.error("Couldn't create workout table")
     return
+  }
+
+  for workout in workouts {
+    insert_workout(db, workout.name, workout.duration)
   }
 
   result = create_workout_exercise_table(db)
@@ -174,6 +224,41 @@ get_all_exercise :: proc(state: ^State) -> bool {
         id := sqlite3_column_int64(stmt, 0)
         name := sqlite3_column_text(stmt, 1)
         append(&state.exercises, Exercise{ id, strings.clone(string(name)) })
+      }
+      case .done: {
+        break loop
+      }
+      case: {
+        log.error("Failed to read data from row", result)
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
+get_all_workouts :: proc(state: ^State) -> bool {
+  stmt: ^Stmt
+  sql: cstring = "SELECT id, name, duration from workout"
+  result := sqlite3_prepare_v2(state.db, sql, -1, &stmt, nil)
+  defer sqlite3_finalize(stmt)
+
+  if result != .ok {
+    log.error("Failed to prepare statement", result)
+    return false
+  }
+
+  delete_workouts(state)
+  loop: for {
+    result = sqlite3_step(stmt)
+
+    #partial switch result {
+      case .row: {
+        id := sqlite3_column_int64(stmt, 0)
+        name := sqlite3_column_text(stmt, 1)
+        duration := sqlite3_column_int64(stmt, 2)
+        append(&state.workouts, Workout{ id, strings.clone(string(name)), duration })
       }
       case .done: {
         break loop

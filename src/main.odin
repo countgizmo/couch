@@ -37,6 +37,7 @@ Screen :: enum {
   Tracking,
   Palette,
   Exercises,
+  Workouts,
 }
 
 Menu :: struct {
@@ -48,14 +49,27 @@ Menu :: struct {
 
 Exercise :: struct {
   id: i64,
-  title: string,
+  name: string,
+}
+
+Workout :: struct {
+  id: i64,
+  name: string,
+  duration: i64,
 }
 
 delete_exercises :: proc(state: ^State) {
   for e in state.exercises {
-    delete(e.title)
+    delete(e.name)
   }
   clear(&state.exercises)
+}
+
+delete_workouts :: proc(state: ^State) {
+  for e in state.workouts {
+    delete(e.name)
+  }
+  clear(&state.workouts)
 }
 
 State :: struct {
@@ -86,6 +100,7 @@ State :: struct {
 
   // Data
   exercises: [dynamic]Exercise,
+  workouts: [dynamic]Workout,
   sessions: [dynamic]Session,
   selected_session_index: int,
   selected_live_session_entry: int
@@ -552,6 +567,8 @@ render :: proc(state: ^State) {
     render_palette(rest, state)
   case .Exercises:
     render_exercises_list(rest, state)
+  case .Workouts:
+    render_workouts_list(rest, state)
   }
 
   render_main_menu(menubar, state)
@@ -564,8 +581,8 @@ main :: proc() {
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
-    // .WINDOW_MAXIMIZED,
-    // .WINDOW_RESIZABLE,
+ //   .WINDOW_MAXIMIZED,
+ //   .WINDOW_RESIZABLE,
   })
 
   rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Couch")
@@ -628,7 +645,7 @@ main :: proc() {
     Menu {
       label = "Workouts",
       items = {
-        Menu { label = "All" }
+        Menu { label = "All", screen = .Workouts }
       }
     },
     Menu {
@@ -649,10 +666,10 @@ main :: proc() {
 
   // Hardcoded data for testing stuff
   session1 := Session { duration_minutes = 20 }
-  append(&session1.exercises, Exercise { title = "KB Snatch" });
+  append(&session1.exercises, Exercise { name = "KB Snatch" });
   session2 := Session { duration_minutes = 30}
-  append(&session2.exercises, Exercise { title = "KB Clean" });
-  append(&session2.exercises, Exercise { title = "KB Front Squat" });
+  append(&session2.exercises, Exercise { name = "KB Clean" });
+  append(&session2.exercises, Exercise { name = "KB Front Squat" });
 
   append(&state.sessions, session1)
   append(&state.sessions, session2)

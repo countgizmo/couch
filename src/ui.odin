@@ -267,6 +267,59 @@ render_cell_border_right :: proc(container: Rect) -> Rect {
 
 }
 
+render_workouts_list :: proc(container: Rect, state: ^State) {
+  font_scale := FontScale.Normal
+  row_height := f32(state.font.baseSize) * f32(font_scale)
+  get_all_workouts(state)
+
+  slot, row, body_rest, text_slot, row_rest: Rect
+  body_container := inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
+  body_rest = body_container
+
+  // Header
+  row, body_rest = cut_top(body_rest, row_height)
+  row_rest = render_cell_border_left(row)
+  header := "ID"
+  slot, row_rest = cut_text_left(row_rest, state, header, font_scale, TEXT_PAD_X)
+  render_text_in_middle(slot, state, header, font_scale, CGA_PALETTE[14])
+  row_rest = render_cell_border_left(row_rest)
+
+  header = "Title"
+  slot, row_rest = cut_ratio_left(row_rest, 0.8)
+  render_text_in_middle(slot, state, header, font_scale, CGA_PALETTE[14])
+  row_rest = render_cell_border_left(row_rest)
+
+  header = "Duration"
+  render_text_in_middle(row_rest, state, header, font_scale, CGA_PALETTE[14])
+  render_cell_border_right(row_rest)
+
+  _, body_rest = cut_top(body_rest, 3 * TEXT_PAD_Y)
+
+  for idx in 0..<len(state.workouts) {
+    workout := state.workouts[idx]
+    row, body_rest = cut_top(body_rest, row_height)
+
+    // First Cell: ID
+    row_rest = render_cell_border_left(row)
+    id_str := fmt.tprintf("%v", workout.id)
+    slot, row_rest = cut_text_left(row_rest, state, "ID", font_scale, TEXT_PAD_X)
+    render_text_in_middle(slot, state, id_str, font_scale, CGA_PALETTE[15])
+
+    // Second Cell: title
+    row_rest = render_cell_border_left(row_rest)
+    text_slot, row_rest = cut_ratio_left(row_rest, 0.8)
+    render_padded_text(text_slot, state, workout.name, font_scale, CGA_PALETTE[15], TEXT_PAD_X)
+
+    // Third Cell: duration
+    row_rest = render_cell_border_left(row_rest)
+    duration_str := fmt.tprintf("%v", workout.duration)
+    render_text_in_middle(row_rest, state, duration_str, font_scale, CGA_PALETTE[15])
+
+    render_cell_border_right(row_rest)
+  }
+}
+
+
 render_exercises_list :: proc(container: Rect, state: ^State) {
   font_scale := FontScale.Normal
   row_height := f32(state.font.baseSize) * f32(font_scale)
@@ -302,8 +355,8 @@ render_exercises_list :: proc(container: Rect, state: ^State) {
 
     // Second Cell: title
     row_rest = render_cell_border_left(row_rest)
-    text_slot, row_rest = cut_text_left(row_rest, state, exercise.title, font_scale, TEXT_PAD_X)
-    render_padded_text(text_slot, state, exercise.title, font_scale, CGA_PALETTE[15], TEXT_PAD_X)
+    text_slot, row_rest = cut_text_left(row_rest, state, exercise.name, font_scale, TEXT_PAD_X)
+    render_padded_text(text_slot, state, exercise.name, font_scale, CGA_PALETTE[15], TEXT_PAD_X)
 
     render_cell_border_right(row_rest)
   }
@@ -343,7 +396,7 @@ make_session_name :: proc(session: Session, allocator := context.temp_allocator)
   b := strings.builder_make(allocator)
   for ex, i in session.exercises {
     if i > 0 do strings.write_string(&b, " + ")
-    strings.write_string(&b, ex.title)
+    strings.write_string(&b, ex.name)
   }
 
   return strings.to_string(b)
