@@ -392,6 +392,14 @@ handle_enter :: proc(state: ^State) {
   clear(&state.keys_pressed)
 }
 
+handle_escape :: proc(state: ^State) {
+  if state.current_modal != .None {
+    state.current_modal = .None
+  }
+
+  clear(&state.keys_pressed)
+}
+
 update :: proc(state: ^State) {
   // Time
   if !state.paused && state.started {
@@ -430,6 +438,8 @@ update :: proc(state: ^State) {
     }
   case .ENTER:
     handle_enter(state)
+  case .ESCAPE:
+    handle_escape(state)
   case .SPACE:
     if !state.started && state.selected_session_index > -1 {
       state.start = time.now()

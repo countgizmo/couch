@@ -15,9 +15,9 @@ FontScale :: enum i32 {
 }
 
 font_metrics :: proc(state: ^State, scale: FontScale) -> (size, spacing: f32) {
-    size = f32(state.font.baseSize) * f32(int(scale))
-    spacing = 0
-    return
+  size = f32(state.font.baseSize) * f32(int(scale))
+  spacing = 0
+  return
 }
 
 menu_items_to_vect_column :: proc(state: ^State, scale: FontScale, items: []Menu) -> rl.Vector2 {
@@ -38,6 +38,12 @@ menu_items_to_vect_column :: proc(state: ^State, scale: FontScale, items: []Menu
   }
 
   return rl.Vector2 { max_width, total_height }
+}
+
+measure_text :: proc(text: string, state: ^State, scale: FontScale) -> rl.Vector2 {
+  size, spacing := font_metrics(state, scale)
+  c_text := fmt.ctprint(text)
+  return rl.MeasureTextEx(state.font, c_text, size, spacing)
 }
 
 render_text_in_middle :: proc (container: rl.Rectangle, state: ^State, text: string, scale: FontScale, color: rl.Color) {

@@ -46,6 +46,10 @@ shadow :: proc(r: Rect) -> Rect {
   }
 }
 
+draw_shadow :: proc(r: Rect) {
+  rl.DrawRectangleRec(shadow(r), CGA_PALETTE[0])
+}
+
 cut_top :: proc(r: Rect, h: f32) -> (strip, rest: Rect) {
   strip = { r.x, r.y, r.width, h }
   rest = { r.x, r.y + h, r.width, r.height - h }
@@ -327,10 +331,34 @@ render_modal_reps_input :: proc(container: Rect, state: ^State) {
   render_text_in_middle(modal, state, text, FontScale.Big, CGA_PALETTE[14])
 }
 
+//  ═ (0x2550): Double Horizontal
+//  ║ (0x2551): Double Vertical
+//  ╔ (0x2554): Double Down and Right
+//  ╗ (0x2557): Double Down and Left
+//  ╚ (0x255A): Double Up and Right
+//  ╝ (0x255D): Double Up and Left
+
 render_modal_ex_list :: proc(container: Rect, state: ^State) {
   slot := inset(container, 300, 200)
+  size, spacing := font_metrics(state, FontScale.Normal)
+  cell_w := rl.MeasureTextEx(state.font, "A", size, spacing).x
+
   workout := state.workouts[state.selected_workout_index]
+  // draw_shadow(slot)
   fill_solid(slot, CGA_PALETTE[7])
+
+
+  slot = inset(slot, 5, 5)
+  rl.DrawRectangleLinesEx(slot, 2, CGA_PALETTE[15])
+  slot = inset(slot, 5, 5)
+  rl.DrawRectangleLinesEx(slot, 2, CGA_PALETTE[15])
+
+  // Horizontal borders
+  // for x_step: f32 = cell_w; x_step + cell_w < slot.width; x_step += cell_w {
+  //   rl.DrawTextCodepoint(state.font, 0x2550, {slot.x + x_step, slot.y}, size, CGA_PALETTE[15])
+  //   rl.DrawTextCodepoint(state.font, 0x2550, {slot.x + x_step, slot.y + slot.height - size}, size, CGA_PALETTE[15])
+  // }
+
   // state.selected_workout_index = -1
 }
 
