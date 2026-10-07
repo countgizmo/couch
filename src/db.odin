@@ -33,9 +33,10 @@ foreign sqlite {
   sqlite3_finalize :: proc(stmt: ^Stmt) -> rescode ---
   sqlite3_step :: proc(stmt: ^Stmt) -> rescode ---
   sqlite3_bind_int64 :: proc(stmt: ^Stmt, index: c.int, num: i64) -> rescode ---
-  sqlite3_bind_text :: proc(stmt: ^Stmt, index: c.int, text: cstring, bytes: c.int, destructor: uintptr) -> rescode ---
+  sqlite3_bind_text :: proc(stmt: ^Stmt, index: c.int, text: [^]u8, bytes: c.int, destructor: uintptr) -> rescode ---
   sqlite3_column_int64 :: proc(stmt: ^Stmt, index: c.int) -> i64 ---
   sqlite3_column_text :: proc(stmt: ^Stmt, index: c.int) -> cstring ---
+  sqlite3_errmsg :: proc(db: ^DB) -> cstring ---
 }
 
 create_table :: proc(db: ^DB, create_table_query: cstring) -> bool {
@@ -71,8 +72,6 @@ exercise_names := []string {
 }
 
 insert_exercise :: proc(db: ^DB, name: string) -> bool {
-  c_name := strings.clone_to_cstring(name)
-  defer delete(c_name)
   insert_ex_stmt: ^Stmt
 
   insert_ex_sql: cstring = "INSERT OR IGNORE INTO exercise (name) VALUES (?)"
@@ -84,7 +83,7 @@ insert_exercise :: proc(db: ^DB, name: string) -> bool {
     return false
   }
 
-  result = sqlite3_bind_text(insert_ex_stmt, 1, c_name, -1, ~uintptr(0))
+  result = sqlite3_bind_text(insert_ex_stmt, 1, raw_data(name), i32(len(name)), ~uintptr(0))
 
   if result != .ok {
     log.error("Failed to bind text", result)
@@ -102,8 +101,6 @@ insert_exercise :: proc(db: ^DB, name: string) -> bool {
 }
 
 insert_workout :: proc(db: ^DB, name: string, duration: i64) -> bool {
-  c_name := strings.clone_to_cstring(name)
-  defer delete(c_name)
   insert_stmt: ^Stmt
 
   insert_sql: cstring = "INSERT OR IGNORE INTO workout (name, duration) VALUES (?, ?)"
@@ -115,7 +112,7 @@ insert_workout :: proc(db: ^DB, name: string, duration: i64) -> bool {
     return false
   }
 
-  result = sqlite3_bind_text(insert_stmt, 1, c_name, -1, ~uintptr(0))
+  result = sqlite3_bind_text(insert_stmt, 1, raw_data(name), i32(len(name)), ~uintptr(0))
 
   if result != .ok {
     log.error("Failed to bind name", result)
@@ -140,8 +137,6 @@ insert_workout :: proc(db: ^DB, name: string, duration: i64) -> bool {
   return true
 }
 
-
-
 create_workouts_table :: proc(db: ^DB) -> bool {
   sql: cstring = "CREATE TABLE IF NOT EXISTS workout (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, duration INTEGER NOT NULL)"
   return create_table(db, sql)
@@ -151,8 +146,10 @@ create_workout_exercise_table :: proc(db: ^DB) -> bool {
   sql: cstring = `
 CREATE TABLE IF NOT EXISTS workout_exercise (
     id          INTEGER PRIMARY KEY,
+    position    INTEGER NOT NULL,
     workout_id  INTEGER NOT NULL,
     exercise_id INTEGER NOT NULL,
+    UNIQUE      (workout_id, position),
     FOREIGN KEY (workout_id)  REFERENCES workout(id)  ON DELETE CASCADE,
     FOREIGN KEY (exercise_id) REFERENCES exercise(id)
 );`
@@ -170,6 +167,92 @@ setup_db :: proc(db: ^DB) {
 workouts := []Workout {
   { name = "KB Snatches", duration = 20 },
   { name = "KB Clean & Press + Front Squats", duration = 30 }
+}
+
+get_user_version :: proc(db: ^DB) -> (i64, bool) {
+  stmt: ^Stmt
+  sql: cstring = "PRAGMA user_version;"
+  version: i64
+  result := sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+  defer sqlite3_finalize(stmt)
+
+  if result != .ok {
+    log.error("Failed to prepare statement", result)
+    return version, false
+  }
+
+  result = sqlite3_step(stmt)
+
+  if result == .row {
+    version = sqlite3_column_int64(stmt, 0)
+  } else {
+    return version, false
+  }
+
+  return version, true
+}
+
+add_exercise_to_workout :: proc(db: ^DB, exercise_name: string, workout_name: string, position: int) -> bool {
+  stmt: ^Stmt
+  sql: cstring = `
+      INSERT INTO workout_exercise (exercise_id, workout_id, position)
+      VALUES (
+        (SELECT id FROM exercise WHERE name = ?),
+        (SELECT id FROM workout WHERE name = ?),
+        ?
+  );`
+
+  result := sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+  defer sqlite3_finalize(stmt)
+
+  if result != .ok {
+    log.error("Failed to prepare statement", result, sqlite3_errmsg(db))
+    return false
+  }
+
+  result = sqlite3_bind_text(stmt, 1, raw_data(exercise_name), i32(len(exercise_name)), ~uintptr(0))
+  if result != .ok {
+    log.error("Failed to bind text", result, sqlite3_errmsg(db))
+    return false
+  }
+
+  result = sqlite3_bind_text(stmt, 2, raw_data(workout_name), i32(len(workout_name)), ~uintptr(0))
+  if result != .ok {
+    log.error("Failed to bind text", result, sqlite3_errmsg(db))
+    return false
+  }
+
+  result = sqlite3_bind_int64(stmt, 3, i64(position))
+  if result != .ok {
+    log.error("Failed to bind int", result, sqlite3_errmsg(db))
+    return false
+  }
+
+  result = sqlite3_step(stmt)
+
+  if result != .done {
+    log.error("Failed to insert a row", result, sqlite3_errmsg(db))
+    return false
+  }
+
+  return true
+}
+
+seed_data :: proc(db: ^DB) {
+  user_version, ok := get_user_version(db)
+
+  if !ok {
+    log.error("Failed to get PRAGMA user_version")
+    log.error("Not gonna seed the data")
+    return
+  }
+
+  if user_version == 0 {
+    add_exercise_to_workout(db, "KB Snatch", "KB Snatches", 1)
+    add_exercise_to_workout(db, "KB Clean", "KB Clean & Press + Front Squats", 1)
+    add_exercise_to_workout(db, "KB Press", "KB Clean & Press + Front Squats", 2)
+    add_exercise_to_workout(db, "KB Front Squat", "KB Clean & Press + Front Squats", 3)
+  }
 }
 
 init_db :: proc(db: ^DB) {
@@ -201,6 +284,8 @@ init_db :: proc(db: ^DB) {
     log.error("Couldn't create workout_exercise table")
     return
   }
+
+  seed_data(db)
 
 }
 
@@ -272,4 +357,3 @@ get_all_workouts :: proc(state: ^State) -> bool {
 
   return true
 }
-
