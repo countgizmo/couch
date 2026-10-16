@@ -252,6 +252,12 @@ seed_data :: proc(db: ^DB) {
     add_exercise_to_workout(db, "KB Clean", "KB Clean & Press + Front Squats", 1)
     add_exercise_to_workout(db, "KB Press", "KB Clean & Press + Front Squats", 2)
     add_exercise_to_workout(db, "KB Front Squat", "KB Clean & Press + Front Squats", 3)
+
+    errmsg: cstring
+    if sqlite3_exec(db, "PRAGMA user_version = 1;" , nil, nil, &errmsg) != rescode.ok {
+      log.error("sqlite error:", errmsg)
+      sqlite3_free(rawptr(errmsg))
+    }
   }
 }
 
