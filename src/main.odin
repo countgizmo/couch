@@ -56,12 +56,14 @@ Menu :: struct {
 Exercise :: struct {
   id: i64,
   name: string,
+  position: i64,
 }
 
 Workout :: struct {
   id: i64,
   name: string,
   duration: i64,
+  exercises: [dynamic]Exercise,
 }
 
 delete_exercises :: proc(state: ^State) {

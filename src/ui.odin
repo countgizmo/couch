@@ -331,35 +331,66 @@ render_modal_reps_input :: proc(container: Rect, state: ^State) {
   render_text_in_middle(modal, state, text, FontScale.Big, CGA_PALETTE[14])
 }
 
-//  ═ (0x2550): Double Horizontal
-//  ║ (0x2551): Double Vertical
-//  ╔ (0x2554): Double Down and Right
-//  ╗ (0x2557): Double Down and Left
-//  ╚ (0x255A): Double Up and Right
-//  ╝ (0x255D): Double Up and Left
+render_exercise_row :: proc(row: Rect, state: ^State, exercise: Exercise) {
+  slot, row_rest: Rect
+  font_scale := FontScale.Normal
+
+  // First Cell: position
+  row_rest = render_cell_border_left(row)
+  position_str := fmt.tprintf("%v", exercise.position)
+  slot, row_rest = cut_text_left(row_rest, state, "POSITION", font_scale, TEXT_PAD_X)
+  render_text_in_middle(slot, state, position_str, font_scale, CGA_PALETTE[15])
+
+  // Second Cell: title
+  row_rest = render_cell_border_left(row_rest)
+  slot, row_rest = cut_ratio_left(row_rest, 0.8)
+  render_padded_text(slot, state, exercise.name, font_scale, CGA_PALETTE[15], TEXT_PAD_X)
+
+  render_cell_border_right(row_rest)
+}
+
 
 render_modal_ex_list :: proc(container: Rect, state: ^State) {
-  slot := inset(container, 300, 200)
+  workout := state.workouts[state.selected_workout_index]
+
+  font_scale := FontScale.Normal
+  row_height := f32(state.font.baseSize) * f32(font_scale)
+  body_container := inset(container, 300, 200)
   size, spacing := font_metrics(state, FontScale.Normal)
   cell_w := rl.MeasureTextEx(state.font, "A", size, spacing).x
 
-  workout := state.workouts[state.selected_workout_index]
-  // draw_shadow(slot)
-  fill_solid(slot, CGA_PALETTE[7])
+  draw_shadow(body_container)
+  fill_solid(body_container, CGA_PALETTE[7])
 
+  body_container = inset(body_container, 5, 5)
+  rl.DrawRectangleLinesEx(body_container, 2, CGA_PALETTE[15])
+  body_container = inset(body_container, 5, 5)
+  rl.DrawRectangleLinesEx(body_container, 2, CGA_PALETTE[15])
 
-  slot = inset(slot, 5, 5)
-  rl.DrawRectangleLinesEx(slot, 2, CGA_PALETTE[15])
-  slot = inset(slot, 5, 5)
-  rl.DrawRectangleLinesEx(slot, 2, CGA_PALETTE[15])
+  // Table
+  slot, row, body_rest, text_slot, row_rest: Rect
+  body_rest = inset(body_container, CONTAINER_PADDING, CONTAINER_PADDING)
 
-  // Horizontal borders
-  // for x_step: f32 = cell_w; x_step + cell_w < slot.width; x_step += cell_w {
-  //   rl.DrawTextCodepoint(state.font, 0x2550, {slot.x + x_step, slot.y}, size, CGA_PALETTE[15])
-  //   rl.DrawTextCodepoint(state.font, 0x2550, {slot.x + x_step, slot.y + slot.height - size}, size, CGA_PALETTE[15])
-  // }
+  // Header
+  row, body_rest = cut_top(body_rest, row_height)
+  row_rest = render_cell_border_left(row)
+  header := "Position"
+  slot, row_rest = cut_text_left(row_rest, state, header, font_scale, TEXT_PAD_X)
+  render_text_in_middle(slot, state, header, font_scale, CGA_PALETTE[14])
+  row_rest = render_cell_border_left(row_rest)
 
-  // state.selected_workout_index = -1
+  header = "Title"
+  slot, row_rest = cut_ratio_left(row_rest, 0.8)
+  render_text_in_middle(slot, state, header, font_scale, CGA_PALETTE[14])
+  render_cell_border_right(row_rest)
+
+  _, body_rest = cut_top(body_rest, 3 * TEXT_PAD_Y)
+
+  for idx in 0..<len(workout.exercises) {
+    exercise := workout.exercises[idx]
+    row, body_rest = cut_top(body_rest, row_height)
+    render_exercise_row(row, state, exercise)
+  }
 }
 
 render_workouts_list :: proc(container: Rect, state: ^State) {
@@ -398,7 +429,6 @@ render_workouts_list :: proc(container: Rect, state: ^State) {
     }
   }
 }
-
 
 render_exercises_list :: proc(container: Rect, state: ^State) {
   font_scale := FontScale.Normal

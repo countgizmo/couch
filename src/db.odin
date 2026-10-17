@@ -314,7 +314,7 @@ get_all_exercise :: proc(state: ^State) -> bool {
       case .row: {
         id := sqlite3_column_int64(stmt, 0)
         name := sqlite3_column_text(stmt, 1)
-        append(&state.exercises, Exercise{ id, strings.clone(string(name)) })
+        append(&state.exercises, Exercise{ id = id, name =strings.clone(string(name)) })
       }
       case .done: {
         break loop
@@ -331,33 +331,58 @@ get_all_exercise :: proc(state: ^State) -> bool {
 
 get_all_workouts :: proc(state: ^State) -> bool {
   stmt: ^Stmt
-  sql: cstring = "SELECT id, name, duration from workout"
+  sql: cstring = `
+    SELECT w.id, w.name, w.duration, we.position, e.id, e.name
+    FROM workout_exercise we
+    JOIN workout w ON w.id = we.workout_id
+    JOIN exercise e ON e.id = we.exercise_id
+    ORDER BY w.id, we.position;
+`;
   result := sqlite3_prepare_v2(state.db, sql, -1, &stmt, nil)
   defer sqlite3_finalize(stmt)
 
   if result != .ok {
-    log.error("Failed to prepare statement", result)
+    log.error("Failed to prepare statement", result, sqlite3_errmsg(state.db))
     return false
   }
 
   delete_workouts(state)
+
+  current_workout_id: i64
+  current_workout: Workout
   loop: for {
     result = sqlite3_step(stmt)
 
     #partial switch result {
-      case .row: {
-        id := sqlite3_column_int64(stmt, 0)
-        name := sqlite3_column_text(stmt, 1)
-        duration := sqlite3_column_int64(stmt, 2)
-        append(&state.workouts, Workout{ id, strings.clone(string(name)), duration })
+    case .row: {
+      workout_id := sqlite3_column_int64(stmt, 0)
+      workout_name := sqlite3_column_text(stmt, 1)
+      workout_duration := sqlite3_column_int64(stmt, 2)
+      exercise_position := sqlite3_column_int64(stmt, 3)
+      exercise_id := sqlite3_column_int64(stmt, 4)
+      exercise_name := sqlite3_column_text(stmt, 5)
+
+      exercise := Exercise { exercise_id, strings.clone(string(exercise_name)), exercise_position }
+
+      if current_workout_id == 0 {
+        current_workout = Workout{ id = workout_id, name = strings.clone(string(workout_name)), duration = workout_duration }
+        current_workout_id = workout_id
+      } else if current_workout_id != workout_id {
+        append(&state.workouts, current_workout)
+        current_workout_id = workout_id
+        current_workout = Workout{ id = workout_id, name = strings.clone(string(workout_name)), duration = workout_duration }
       }
-      case .done: {
-        break loop
-      }
-      case: {
-        log.error("Failed to read data from row", result)
-        return false
-      }
+
+      append(&current_workout.exercises, exercise)
+    }
+    case .done: {
+      append(&state.workouts, current_workout)
+      break loop
+    }
+    case: {
+      log.error("Failed to read data from row", result)
+      return false
+    }
     }
   }
 
