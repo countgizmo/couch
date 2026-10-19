@@ -69,6 +69,7 @@ exercise_names := []string {
   "KB Clean",
   "KB Front Squat",
   "KB Press",
+  "KB Clean & Press",
 }
 
 insert_exercise :: proc(db: ^DB, name: string) -> bool {
@@ -248,10 +249,13 @@ seed_data :: proc(db: ^DB) {
   }
 
   if user_version == 0 {
+    for name in exercise_names {
+      insert_exercise(db, name)
+    }
+
     add_exercise_to_workout(db, "KB Snatch", "KB Snatches", 1)
-    add_exercise_to_workout(db, "KB Clean", "KB Clean & Press + Front Squats", 1)
-    add_exercise_to_workout(db, "KB Press", "KB Clean & Press + Front Squats", 2)
-    add_exercise_to_workout(db, "KB Front Squat", "KB Clean & Press + Front Squats", 3)
+    add_exercise_to_workout(db, "KB Clean & Press", "KB Clean & Press + Front Squats", 1)
+    add_exercise_to_workout(db, "KB Front Squat", "KB Clean & Press + Front Squats", 2)
 
     errmsg: cstring
     if sqlite3_exec(db, "PRAGMA user_version = 1;" , nil, nil, &errmsg) != rescode.ok {
@@ -271,10 +275,6 @@ init_db :: proc(db: ^DB) {
     return
   }
 
-  for name in exercise_names {
-    insert_exercise(db, name)
-  }
-
   result = create_workouts_table(db)
   if !result {
     log.error("Couldn't create workout table")
@@ -292,7 +292,6 @@ init_db :: proc(db: ^DB) {
   }
 
   seed_data(db)
-
 }
 
 get_all_exercise :: proc(state: ^State) -> bool {
