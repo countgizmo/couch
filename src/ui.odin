@@ -72,6 +72,11 @@ cut_right :: proc(r: Rect, w: f32) -> (strip, rest: Rect) {
   return
 }
 
+cut_ratio_top :: proc(r: Rect, height_ratio: f32) -> (strip, rest: Rect) {
+  h := r.height * height_ratio
+  return cut_top(r, h)
+}
+
 cut_ratio_left :: proc(r: Rect, width_ratio: f32) -> (strip, rest: Rect) {
   w := r.width * width_ratio
   return cut_left(r, w)
@@ -285,7 +290,7 @@ render_workout_row :: proc(row: Rect, idx: int, state: ^State) -> bool {
   row_hovered := state.hot.name == item_id.name && state.hot.index == item_id.index
   row_clicked := row_hovered && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
 
-  if row_hovered {
+  if row_hovered || idx == state.selected_workout_index {
     fill_solid(row, CGA_PALETTE[2])
   }
 
@@ -502,73 +507,39 @@ render_status_bar :: proc(container: Rect, state: ^State) {
   render_text_in_middle(slot, state, help_hint_text, FontScale.Normal, CGA_PALETTE[0])
 }
 
-make_session_name :: proc(session: Session, allocator := context.temp_allocator) -> string {
-  b := strings.builder_make(allocator)
-  for ex, i in session.exercises {
-    if i > 0 do strings.write_string(&b, " + ")
-    strings.write_string(&b, ex.name)
-  }
-
-  return strings.to_string(b)
-}
-
 render_sessions_list :: proc(container: Rect, state: ^State) {
-  row : Rect
-  body_rest := container
-  vline := "|"
-  mouse := rl.GetMousePosition()
+  font_scale := FontScale.Normal
+  row_height := f32(state.font.baseSize) * f32(font_scale)
+  get_all_workouts(state)
 
-  for idx in 0..<len(state.sessions) {
-    row_text_color := CGA_PALETTE[14]
-    row_id := WidgetID { "session_row", idx }
+  slot, row, body_rest, text_slot, row_rest: Rect
+  body_container := inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
+  body_rest = body_container
 
-    session := state.sessions[idx]
-    row, body_rest = cut_top(body_rest, ROW_HEIGHT + TEXT_PAD_X)
+  // Header
+  row, body_rest = cut_top(body_rest, row_height)
+  row_rest = render_cell_border_left(row)
+  header := "ID"
+  slot, row_rest = cut_text_left(row_rest, state, header, font_scale, TEXT_PAD_X)
+  render_text_in_middle(slot, state, header, font_scale, CGA_PALETTE[14])
+  row_rest = render_cell_border_left(row_rest)
 
-    if state.current_z_layer == 0 {
-      if rl.CheckCollisionPointRec(mouse, row) {
-        state.hot = row_id
-      }
+  header = "Title"
+  slot, row_rest = cut_ratio_left(row_rest, 0.8)
+  render_text_in_middle(slot, state, header, font_scale, CGA_PALETTE[14])
+  row_rest = render_cell_border_left(row_rest)
 
-      row_hovered := state.hot.name == row_id.name && state.hot.index == idx
-      row_clicked := row_hovered && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
-      if row_hovered {
-        fill_solid(row, CGA_PALETTE[14])
-        row_text_color = CGA_PALETTE[1]
-      }
+  header = "Duration"
+  render_text_in_middle(row_rest, state, header, font_scale, CGA_PALETTE[14])
+  render_cell_border_right(row_rest)
 
-      if row_clicked {
-        state.selected_session_index = idx
-      }
+  _, body_rest = cut_top(body_rest, 3 * TEXT_PAD_Y)
+
+  for idx in 0..<len(state.workouts) {
+    row, body_rest = cut_top(body_rest, row_height)
+    if render_workout_row(row, idx, state) {
+      state.selected_workout_index = idx
     }
-
-    if idx == state.selected_session_index {
-      fill_solid(row, CGA_PALETTE[2])
-    }
-
-    // First Cell
-    slot, row_rest := cut_ratio_left(row, 0.7)
-
-    text_slot, slot_rest := cut_text_left(slot, state, vline, FontScale.Normal, TEXT_PAD_X)
-    render_text(text_slot, state, vline, FontScale.Normal, row_text_color)
-
-    session_name := make_session_name(session)
-    text_slot, slot_rest = cut_text_left(slot_rest, state, session_name, FontScale.Normal, TEXT_PAD_X)
-    render_text(text_slot, state, session_name, FontScale.Normal, row_text_color)
-
-    text_slot, slot_rest = cut_text_right(slot_rest, state, vline, FontScale.Normal, TEXT_PAD_X)
-    render_text(text_slot, state, vline, FontScale.Normal, row_text_color)
-
-    // Second Cell
-    duration_text := fmt.tprintf("%v (min)", session.duration_minutes)
-    text_slot, slot_rest = cut_text_left(row_rest, state, duration_text, FontScale.Normal, TEXT_PAD_X)
-    render_text(text_slot, state, duration_text, FontScale.Normal, row_text_color)
-
-    text_slot, slot_rest = cut_text_right(slot_rest, state, vline, FontScale.Normal, TEXT_PAD_X)
-    render_text(text_slot, state, vline, FontScale.Normal, row_text_color)
-
-    // Next row starts from the left
-    body_rest.x = container.x
   }
 }
 

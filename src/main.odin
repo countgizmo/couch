@@ -83,7 +83,6 @@ delete_workouts :: proc(state: ^State) {
 State :: struct {
   start: time.Time,
   seconds_from_start: f32,
-  session: [dynamic]Entry,
   started: bool,
   paused: bool,
   done: bool,
@@ -110,14 +109,15 @@ State :: struct {
   exercises: [dynamic]Exercise,
   workouts: [dynamic]Workout,
   sessions: [dynamic]Session,
-  selected_session_index: int,
-  selected_live_session_entry: int,
   selected_workout_index: int,
+  selected_active_session_entry: int,
+  active_session: Session,
 }
 
 Session :: struct {
-  exercises: [dynamic]Exercise,
-  duration_minutes: u32,
+  sets: [dynamic]Entry,
+  totals: [dynamic]i32,
+  workout: ^Workout,
 }
 
 Entry :: struct {
@@ -135,11 +135,11 @@ SCREEN_HEIGHT :: 800
 CONTAINER_PADDING :: 40
 COLUMN_PADDING: f32 = 10
 
-minutes_to_seconds :: proc(minutes: u32) -> f32 {
+minutes_to_seconds :: proc(minutes: i64) -> f32 {
   return cast(f32) minutes * 60
 }
 
-get_column_width :: proc(container: rl.Rectangle, chunks: u32, count: uint) -> f32 {
+get_column_width :: proc(container: rl.Rectangle, chunks: i64, count: uint) -> f32 {
   chunks_based := container.width / cast(f32)chunks
 
   total_width_needed := (chunks_based + COLUMN_PADDING) * cast(f32)count + 50
@@ -240,15 +240,13 @@ render_axis :: proc(container: rl.Rectangle, color: rl.Color) {
 render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f32, max_reps: i32) {
   mouse := rl.GetMousePosition()
   bar_view := state.bars[idx]
-  entry := state.session[bar_view.entry_index]
+  entry := state.active_session.sets[bar_view.entry_index]
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
 
   color := CGA_PALETTE[14]
-
-  //TODO(evgheni): build based on the number of exercises
-  if idx % 2 == 0 {
-    color = rl.Fade(CGA_PALETTE[14], 0.7)
-  }
+  exercise_ratio := f32(idx % len(state.active_session.workout.exercises))
+  fade := 1.0 - (exercise_ratio * 0.2)
+  color = rl.Fade(CGA_PALETTE[14], fade)
 
   max_percentage := animate_linear(bar_view.animation)
 
@@ -265,10 +263,10 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
 
   column_clicked := rl.CheckCollisionPointRec(mouse, column) && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
   if column_clicked {
-    state.selected_live_session_entry = idx
+    state.selected_active_session_entry = idx
   }
 
-  if state.selected_live_session_entry == idx {
+  if state.selected_active_session_entry == idx {
     color = CGA_PALETTE[3]
   }
 
@@ -286,47 +284,30 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
   }
 }
 
-render_total :: proc(container: rl.Rectangle, state: ^State) {
+render_total :: proc(container: Rect, state: ^State) {
   text: string
+  total: [10]i32
+  total_idx: int
 
-  session := state.sessions[state.selected_session_index]
+  color := CGA_PALETTE[14]
 
-  if len(session.exercises) == 2 {
-    even := false
-    total1:i32
-    total2:i32
+  row, rest: Rect
+  rest = container
+  font_scale := FontScale.Normal
+  row_height := f32(state.font.baseSize) * f32(font_scale)
+  ex: Exercise
 
-    for e in state.session {
-      if even {
-        total2 += e.reps
-        even = !even
-      } else {
-        total1 += e.reps
-        even = !even
-      }
-    }
+  for total, idx in state.active_session.totals {
+    row, rest = cut_top(rest, row_height)
+    ex = state.active_session.workout.exercises[idx]
 
-    text = fmt.tprintf("TOTAL: %v | %v", total1, total2)
-  } else if len(session.exercises) == 1 {
-    total: i32
-    for e in state.session {
-      total += e.reps
-    }
+    exercise_ratio := f32(idx % len(state.active_session.workout.exercises))
+    fade := 1.0 - (exercise_ratio * 0.2)
+    color = rl.Fade(CGA_PALETTE[14], fade)
 
-    text = fmt.tprintf("TOTAL: %v", total)
-  } else {
-    text = "WTF"
+    text = fmt.tprintf("%v: %v", ex.name, total)
+    render_padded_text(row, state, text, font_scale, color, TEXT_PAD_X)
   }
-
-  total_container := rl.Rectangle {
-    x = container.x,
-    y = container.y,
-    width = container.width/2,
-    height = container.height,
-  }
-
-  font_size: f32 = 50
-  render_text_in_middle(total_container, state, text, FontScale.Big, CGA_PALETTE[14])
 }
 
 render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
@@ -344,13 +325,15 @@ render_heart_rate :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_session :: proc(container: rl.Rectangle, state: ^State) {
-  session := state.sessions[state.selected_session_index]
-  column_width := get_column_width(container, session.duration_minutes, len(state.session))
+  column_width := get_column_width(
+    container,
+    state.active_session.workout.duration, len(state.active_session.sets))
+
   max_reps: i32 = 0
 
-  for &entry, idx in state.session {
-    if entry.reps > max_reps {
-      max_reps = entry.reps
+  for &set, idx in state.active_session.sets {
+    if set.reps > max_reps {
+      max_reps = set.reps
     }
   }
 
@@ -370,19 +353,36 @@ convert_to_number :: proc(ascii_digits: [dynamic]u8) -> i32 {
     return result
 }
 
+calculate_total :: proc(session: ^Session,  exercise_idx: int) -> i32 {
+  total: i32
+  exercise_count := len(session.workout.exercises)
+
+  for set, idx in session.sets {
+    if idx % exercise_count == exercise_idx {
+      total += set.reps
+    }
+  }
+
+  return total
+}
+
 handle_enter :: proc(state: ^State) {
   state.current_modal = .None
   reps_num := convert_to_number(state.keys_pressed)
+  selected_entry := state.selected_active_session_entry
+  ex_num := len(state.active_session.workout.exercises)
 
-  if state.selected_live_session_entry > -1 {
-    state.session[state.selected_live_session_entry].reps = reps_num
-    state.bars[state.selected_live_session_entry].animation.running = true
-    state.bars[state.selected_live_session_entry].animation.elapsed = 0
-    state.selected_live_session_entry = -1
+  if selected_entry > -1 {
+    ex_idx := selected_entry % ex_num
+    state.active_session.sets[selected_entry].reps = reps_num
+    state.active_session.totals[selected_entry % ex_num] = calculate_total(&state.active_session, ex_idx)
+    state.bars[state.selected_active_session_entry].animation.running = true
+    state.bars[state.selected_active_session_entry].animation.elapsed = 0
+    state.selected_active_session_entry = -1
   } else {
-    append(&state.session, Entry{reps = reps_num, t = time.now()})
+    append(&state.active_session.sets, Entry{reps = reps_num, t = time.now()})
     append(&state.bars, BarView{
-      entry_index = len(state.session) - 1,
+      entry_index = len(state.active_session.sets) - 1,
       animation = Animation {
         duration = 0.4,
         from = 0,
@@ -390,6 +390,15 @@ handle_enter :: proc(state: ^State) {
         running = true,
       },
     })
+
+    current_set_idx := len(state.active_session.sets)-1
+    ex_idx := current_set_idx % ex_num
+
+    if ex_idx >= len(state.active_session.totals) {
+      append(&state.active_session.totals, reps_num)
+    } else {
+      state.active_session.totals[ex_idx] += reps_num
+    }
   }
   clear(&state.keys_pressed)
 }
@@ -402,22 +411,36 @@ handle_escape :: proc(state: ^State) {
   clear(&state.keys_pressed)
 }
 
+handle_space :: proc(state: ^State) {
+  if !state.started && state.current_screen == .Start && state.selected_workout_index > -1 {
+    state.start = time.now()
+    state.started = true
+    state.current_screen = .Tracking
+
+    state.active_session = Session {
+      workout = &state.workouts[state.selected_workout_index],
+    }
+  }
+
+  if state.started {
+    state.paused = !state.paused
+  }
+}
+
 update :: proc(state: ^State) {
   // Time
   if !state.paused && state.started {
     state.seconds_from_start += rl.GetFrameTime()
   }
 
-  if state.selected_live_session_entry > -1 {
+  if state.selected_active_session_entry > -1 {
     state.current_modal = .RepsInput
   }
 
   // Are we running a training session?
-  if state.selected_session_index > -1 {
-    session := state.sessions[state.selected_session_index]
-
+  if state.started {
     // Are we done yet?
-    total_seconds := minutes_to_seconds(session.duration_minutes)
+    total_seconds := minutes_to_seconds(state.active_session.workout.duration)
     if state.seconds_from_start >= total_seconds {
       state.done = true
       state.paused = true
@@ -443,18 +466,8 @@ update :: proc(state: ^State) {
   case .ESCAPE:
     handle_escape(state)
   case .SPACE:
-    if !state.started && state.selected_session_index > -1 {
-      state.start = time.now()
-      state.started = true
-      state.current_screen = .Tracking
-    } else {
-      state.paused = !state.paused
-    }
+    handle_space(state)
   }
-
-
-  // Mouse
-
 
   // Animation
   if state.hr_beat_animation.running {
@@ -476,7 +489,7 @@ render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
   slot = inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
   slot, rest = cut_ratio_bottom(slot, 0.3)
 
-  if state.selected_session_index > -1 {
+  if state.selected_workout_index > -1 {
     hint_text := "Press SPACE to start"
     render_text_in_middle(slot, state, hint_text, FontScale.Normal, CGA_PALETTE[14])
   }
@@ -485,8 +498,7 @@ render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
 }
 
 render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
-  session := state.sessions[state.selected_session_index]
-  total_seconds := minutes_to_seconds(session.duration_minutes)
+  total_seconds := minutes_to_seconds(state.active_session.workout.duration)
   percentage_in_pixels := container.width / total_seconds
 
   bar_width: f32
@@ -514,15 +526,15 @@ render_progress_bar :: proc(container: rl.Rectangle, state: ^State) {
 
 render_live_session :: proc(container: Rect, state: ^State) {
   slot, rest : Rect
-  slot, rest = cut_top(container, container.height * 10 / 100)
+  slot, rest = cut_ratio_top(container, 0.2)
   info_section_height := slot.height
 
-  slot = inset(slot, CONTAINER_PADDING, CONTAINER_PADDING)
-  render_total(slot, state)
-  render_heart_rate(slot, state)
+  info_slot := inset(slot, CONTAINER_PADDING, CONTAINER_PADDING)
+  total_slot, info_rest := cut_ratio_left(info_slot, 0.5)
+  render_total(total_slot, state)
+  render_heart_rate(info_rest, state)
 
-
-  slot, rest = cut_top(rest, container.height * 60 / 100)
+  slot, rest = cut_ratio_top(rest, 0.6)
   tracking_section_height := slot.height
 
   slot = inset(slot, CONTAINER_PADDING, CONTAINER_PADDING)
@@ -569,7 +581,6 @@ render :: proc(state: ^State) {
   render_status_bar(statusbar, state)
 
   // Modal is on top of everything, so is rendered last
-
   switch state.current_modal {
   case .None:
   case .RepsInput:
@@ -585,8 +596,8 @@ main :: proc() {
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
- //   .WINDOW_MAXIMIZED,
- //   .WINDOW_RESIZABLE,
+    // .WINDOW_MAXIMIZED,
+    // .WINDOW_RESIZABLE,
   })
 
   rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Couch")
@@ -629,10 +640,9 @@ main :: proc() {
     started = false,
     paused = false,
     font = font,
-    selected_session_index = -1,
-    selected_live_session_entry = -1,
     selected_main_menu_idx = -1,
     selected_workout_index = -1,
+    selected_active_session_entry = -1,
     db = db
   }
 
@@ -668,16 +678,6 @@ main :: proc() {
       menu.size_normal = menu_items_to_vect_column(&state, FontScale.Normal, menu.items)
     }
   }
-
-  // Hardcoded data for testing stuff
-  session1 := Session { duration_minutes = 20 }
-  append(&session1.exercises, Exercise { name = "KB Snatch" });
-  session2 := Session { duration_minutes = 30}
-  append(&session2.exercises, Exercise { name = "KB Clean" });
-  append(&session2.exercises, Exercise { name = "KB Front Squat" });
-
-  append(&state.sessions, session1)
-  append(&state.sessions, session2)
 
   state.hr_beat_animation = Animation {
     duration = 10,
