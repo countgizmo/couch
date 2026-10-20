@@ -490,9 +490,7 @@ update :: proc(state: ^State) {
 }
 
 render_start_screen :: proc(container: rl.Rectangle, state: ^State) {
-  slot, rest: Rect
-  slot = inset(container, CONTAINER_PADDING, CONTAINER_PADDING)
-  slot, rest = cut_ratio_bottom(slot, 0.3)
+  slot, rest := cut_ratio_bottom(container, 0.3)
 
   if state.selected_workout_index > -1 {
     hint_text := "Press SPACE to start"
