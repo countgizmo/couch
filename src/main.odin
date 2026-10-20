@@ -412,6 +412,10 @@ handle_escape :: proc(state: ^State) {
 }
 
 handle_space :: proc(state: ^State) {
+  if state.started {
+    state.paused = !state.paused
+  }
+
   if !state.started && state.current_screen == .Start && state.selected_workout_index > -1 {
     state.start = time.now()
     state.started = true
@@ -421,30 +425,23 @@ handle_space :: proc(state: ^State) {
       workout = &state.workouts[state.selected_workout_index],
     }
   }
-
-  if state.started {
-    state.paused = !state.paused
-  }
 }
 
 update :: proc(state: ^State) {
-  // Time
+  // Are we running a training session?
   if !state.paused && state.started {
     state.seconds_from_start += rl.GetFrameTime()
-  }
 
-  if state.selected_active_session_entry > -1 {
-    state.current_modal = .RepsInput
-  }
-
-  // Are we running a training session?
-  if state.started {
     // Are we done yet?
     total_seconds := minutes_to_seconds(state.active_session.workout.duration)
     if state.seconds_from_start >= total_seconds {
       state.done = true
       state.paused = true
     }
+  }
+
+  if state.selected_active_session_entry > -1 {
+    state.current_modal = .RepsInput
   }
 
 
