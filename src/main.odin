@@ -243,10 +243,18 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
   entry := state.active_session.sets[bar_view.entry_index]
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
 
+  ex_num := len(state.active_session.workout.exercises)
   color := CGA_PALETTE[14]
-  exercise_ratio := f32(idx % len(state.active_session.workout.exercises))
-  fade := 1.0 - (exercise_ratio * 0.2)
-  color = rl.Fade(CGA_PALETTE[14], fade)
+
+  if ex_num == 1 {
+    if idx % 2 == 0 {
+      color = rl.Fade(CGA_PALETTE[14], 0.7)
+    }
+  } else {
+    exercise_ratio := f32(idx % ex_num)
+    fade := 1.0 - (exercise_ratio * 0.2)
+    color = rl.Fade(CGA_PALETTE[14], fade)
+  }
 
   max_percentage := animate_linear(bar_view.animation)
 
@@ -593,8 +601,8 @@ main :: proc() {
 
   rl.SetConfigFlags({
     .WINDOW_HIGHDPI,
-    // .WINDOW_MAXIMIZED,
-    // .WINDOW_RESIZABLE,
+    .WINDOW_MAXIMIZED,
+    .WINDOW_RESIZABLE,
   })
 
   rl.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Couch")
