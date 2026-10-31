@@ -115,13 +115,14 @@ State :: struct {
 }
 
 Session :: struct {
-  sets: [dynamic]Entry,
+  sets: [dynamic]Set,
   totals: [dynamic]i32,
   workout: ^Workout,
 }
 
-Entry :: struct {
+Set :: struct {
   reps: i32,
+  exercise: ^Exercise,
   t: time.Time,
 }
 
@@ -380,6 +381,7 @@ handle_enter :: proc(state: ^State) {
   selected_entry := state.selected_active_session_entry
   ex_num := len(state.active_session.workout.exercises)
 
+  // Editing saved set
   if selected_entry > -1 {
     ex_idx := selected_entry % ex_num
     state.active_session.sets[selected_entry].reps = reps_num
@@ -388,7 +390,25 @@ handle_enter :: proc(state: ^State) {
     state.bars[state.selected_active_session_entry].animation.elapsed = 0
     state.selected_active_session_entry = -1
   } else {
-    append(&state.active_session.sets, Entry{reps = reps_num, t = time.now()})
+    //Adding new set
+    new_set := Set{ reps = reps_num, t = time.now() }
+
+    // new set's index will be = array's length due to 0-based indexing
+    // I can probably make this more human readable
+    current_set_idx := len(state.active_session.sets)
+    ex_idx := current_set_idx % ex_num
+
+    if ex_idx >= len(state.active_session.totals) {
+      append(&state.active_session.totals, reps_num)
+    } else {
+      state.active_session.totals[ex_idx] += reps_num
+    }
+
+    new_set.exercise = &state.active_session.workout.exercises[ex_idx]
+
+    log.debug(new_set)
+
+    append(&state.active_session.sets, new_set)
     append(&state.bars, BarView{
       entry_index = len(state.active_session.sets) - 1,
       animation = Animation {
@@ -398,15 +418,6 @@ handle_enter :: proc(state: ^State) {
         running = true,
       },
     })
-
-    current_set_idx := len(state.active_session.sets)-1
-    ex_idx := current_set_idx % ex_num
-
-    if ex_idx >= len(state.active_session.totals) {
-      append(&state.active_session.totals, reps_num)
-    } else {
-      state.active_session.totals[ex_idx] += reps_num
-    }
   }
   clear(&state.keys_pressed)
 }
