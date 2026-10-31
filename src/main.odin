@@ -257,10 +257,10 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
     color = rl.Fade(CGA_PALETTE[14], fade)
   }
 
-  max_percentage := animate_linear(bar_view.animation)
+  current_reps := animate_linear(bar_view.animation)
 
   percentage_in_pixels := (container.height - CONTAINER_PADDING) / 100
-  column_height_percentage := max_percentage * (cast(f32)entry.reps / cast(f32)max_reps)
+  column_height_percentage := (cast(f32)current_reps / cast(f32)max_reps) * 100
   column_height := column_height_percentage * percentage_in_pixels
 
   column := rl.Rectangle {
@@ -384,10 +384,15 @@ handle_enter :: proc(state: ^State) {
   // Editing saved set
   if selected_entry > -1 {
     ex_idx := selected_entry % ex_num
+    old_reps_num := state.active_session.sets[selected_entry].reps
     state.active_session.sets[selected_entry].reps = reps_num
     state.active_session.totals[selected_entry % ex_num] = calculate_total(&state.active_session, ex_idx)
+
+    state.bars[state.selected_active_session_entry].animation.from = f32(old_reps_num)
+    state.bars[state.selected_active_session_entry].animation.to = f32(reps_num)
     state.bars[state.selected_active_session_entry].animation.running = true
     state.bars[state.selected_active_session_entry].animation.elapsed = 0
+
     state.selected_active_session_entry = -1
   } else {
     //Adding new set
@@ -406,15 +411,13 @@ handle_enter :: proc(state: ^State) {
 
     new_set.exercise = &state.active_session.workout.exercises[ex_idx]
 
-    log.debug(new_set)
-
     append(&state.active_session.sets, new_set)
     append(&state.bars, BarView{
       entry_index = len(state.active_session.sets) - 1,
       animation = Animation {
         duration = 0.4,
         from = 0,
-        to = 100,
+        to = f32(new_set.reps),
         running = true,
       },
     })
