@@ -243,6 +243,7 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
   bar_view := state.bars[idx]
   entry := state.active_session.sets[bar_view.entry_index]
   offset := cast(f32)(idx) * (COLUMN_PADDING + width)
+  font_size: f32 = 40
 
   ex_num := len(state.active_session.workout.exercises)
   color := CGA_PALETTE[14]
@@ -270,8 +271,14 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
     height = column_height,
   }
 
-  column_clicked := rl.CheckCollisionPointRec(mouse, column) && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
-  if column_clicked {
+  // When the reps are 0 there's nothing to click but the label,
+  // so we include the label in the click check.
+  full_column := column
+  full_column.height += font_size
+  full_column.y -= font_size
+  full_column_clicked := rl.CheckCollisionPointRec(mouse, full_column) && rl.IsMouseButtonPressed(rl.MouseButton.LEFT)
+
+  if full_column_clicked {
     state.selected_active_session_entry = idx
   }
 
@@ -283,7 +290,6 @@ render_entry :: proc(container: rl.Rectangle, state: ^State, idx: int, width: f3
 
   if !bar_view.animation.running {
     reps_text := fmt.ctprintf("%v", entry.reps)
-    font_size: f32 = 40
     text_position := rl.Vector2 {
       COLUMN_PADDING + column.x,
       column.y - font_size,
