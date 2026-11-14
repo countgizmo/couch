@@ -1,8 +1,10 @@
 package probecamera
 
 import "core:fmt"
+import "core:strings"
 import "base:intrinsics"
 import "base:runtime"
+import "core:sys/darwin"
 import ns "core:sys/darwin/Foundation"
 
 @(require) foreign import av "system:AVFoundation.framework"
@@ -144,25 +146,77 @@ AVCaptureSession_setVideoSettings :: proc "c" (self: ^AVCaptureVideoDataOutput, 
   msgSend(nil, self, "setVideoSettings:", settings)
 }
 
+// Fun-fun-fun
 
-// Delegate callbacks
-on_output_capture :: proc "c" (self: ns.id, cmd: ns.SEL, output: ns.id, sampleBuffer: ns.id, fromConnection: ns.id) {
-  context = runtime.default_context()
-  imageBuffer := CMSampleBufferGetImageBuffer(sampleBuffer)
+Winsize :: struct {
+  rows: u16,
+  columns: u16,
+  pixel_width: u16,
+  pixel_height: u16,
+}
+
+ramp := [?]u8{'.', ',', '-', '~', ':', ';', '=', '!', '*', '#', '$', '@'}
+
+
+
+render_terminal_frame :: proc (sb: ^strings.Builder, imageBuffer: rawptr, winsize: Winsize) {
   imageWidth := CVPixelBufferGetWidth(imageBuffer)
   imageHeight := CVPixelBufferGetHeight(imageBuffer)
   stride := CVPixelBufferGetBytesPerRowOfPlane(imageBuffer, 0)
 
+  data := cast([^]u8)CVPixelBufferGetBaseAddressOfPlane(imageBuffer, 0)
+  center_pixel := data[(imageHeight/2) * stride + (imageWidth/2)]
+
+  for row in 0..<winsize.rows {
+    //cursor in the beginning of new row
+    fmt.sbprintf(sb, "\033[%v;1H", row+1)
+    for col in 0..<winsize.columns {
+      x := (uint(col) * imageWidth) / uint(winsize.columns)
+      y := (uint(row) * imageHeight) / uint(winsize.rows)
+      pixel := data[y * stride + x]
+
+      ch: u8
+      switch pixel {
+      case 0..<34:    ch = '.'
+      case 34..<52:   ch = ','
+      case 52..<71:   ch = '-'
+      case 71..<89:   ch = '~'
+      case 89..<107:  ch = ':'
+      case 107..<126: ch = ';'
+      case 126..<144: ch = '='
+      case 144..<162: ch = '!'
+      case 162..<181: ch = '*'
+      case 181..<199: ch = '#'
+      case 199..<217: ch = '$'
+      case 217..=255: ch = '@'
+      }
+
+      fmt.sbprintf(sb, "%c", ch)
+    }
+  }
+
+  fmt.print(strings.to_string(sb^))
+  strings.builder_reset(sb)
+}
+
+
+
+// Delegate callbacks
+on_output_capture :: proc "c" (self: ns.id, cmd: ns.SEL, output: ns.id, sampleBuffer: ns.id, fromConnection: ns.id) {
+  context = runtime.default_context()
+  winsize: Winsize
+  darwin.syscall_ioctl(1, darwin.TIOCGWINSZ, &winsize)
+  imageBuffer := CMSampleBufferGetImageBuffer(sampleBuffer)
 
   // Lock the buffer
   CVPixelBufferLockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly)
   defer CVPixelBufferUnlockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly)
 
-  // Now it's safe to read from it
-  data := cast([^]u8)CVPixelBufferGetBaseAddressOfPlane(imageBuffer, 0)
-  center_pixel := data[(imageHeight/2) * stride + (imageWidth/2)]
-  fmt.printfln("Width = %d  Height = %d  Stride = %d Center Pixel Brightness = %d", imageWidth, imageHeight, stride, center_pixel)
+  sb := strings.builder_make()
+  defer strings.builder_destroy(&sb)
 
+  // Now it's safe to read from it
+  render_terminal_frame(&sb, imageBuffer, winsize)
 }
 
 ///////
@@ -180,6 +234,9 @@ kCVPixelBufferLock_ReadOnly :: 1
 //
 
 main :: proc() {
+  // clear screen
+  fmt.print("\033[2J\033[H")
+
   result := AVCaptureDevice_authorizationStatusForMediaType(AVMediaTypeVideo)
   fmt.println("Authorization = ", result)
 
